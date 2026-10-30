@@ -1,0 +1,11 @@
+1) please run ULTRON_SAT_Launcher bat file then open web and run the html file to open a local website on your PC.
+
+2)once the dashboard is open you can read about the limitations and use in end and to check the model go to upload and analyze and browse satellite image;(if your taking it from in folder DATASET then oilspill-detection-dataset-real then IMAGES then IMG-RGB and select any image and click run model) however, you can pull any image from google and test it provided its a satellite image preferably greyscale in which case you don't need to click run model.
+
+3) you can check info about 48 hour forecast and input it according and also set location in where in the world option and fetch oil pipelines via OpenStreetMap.
+
+4) There is also a event log that consists of all events going and a guide how to use.
+
+
+
+
