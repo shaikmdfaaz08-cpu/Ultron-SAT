@@ -1,29 +1,26 @@
-
 @echo off
-title ULTRON SAT Launcher
+setlocal
+title ULTRON SAT Mission Control
 cd /d "%~dp0"
-
 set "PYTHON=%~dp0.venv\Scripts\python.exe"
-
 if not exist "%PYTHON%" (
-    echo ERROR: Python environment not found.
-    pause
-    exit /b 1
+ echo Run SETUP_ULTRON_SAT.bat first.
+ pause
+ exit /b 1
 )
-
-if not exist "%~dp0BACKEND\app.py" (
-    echo ERROR: BACKEND\app.py not found.
-    pause
-    exit /b 1
+if not exist "backend\app.py" (
+ echo Missing backend\app.py
+ pause
+ exit /b 1
 )
-
-echo Starting ULTRON SAT backend...
-start "ULTRON SAT Backend" /D "%~dp0" "%ComSpec%" /k ""%PYTHON%" -m uvicorn BACKEND.app:app --host 127.0.0.1 --port 8000"
-
-echo Waiting for backend startup...
+if not exist "runs\oil_unet_full\best.pt" echo WARNING: Existing trained checkpoint not found.
+set "ULTRON_DASHBOARD=Ultron_Sat_Mission_Control_ULTRA.html"
+if not exist "web\%ULTRON_DASHBOARD%" (
+ echo ULTRA dashboard not uploaded yet. Using existing dashboard.
+ set "ULTRON_DASHBOARD=Ultron Sat Dashboard.html"
+)
+start "ULTRON SAT Backend" /D "%~dp0" "%ComSpec%" /k ""%PYTHON%" -m uvicorn backend.app:app --host 127.0.0.1 --port 8000"
 timeout /t 5 /nobreak >nul
-
 start "" "http://127.0.0.1:8000/"
-
-echo Dashboard opened. Keep the backend window open.
-exit /b 0
+echo Keep backend running for trained AI inference.
+endlocal
