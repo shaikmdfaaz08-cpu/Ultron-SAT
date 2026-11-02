@@ -1,0 +1,46 @@
+# ULTRON SAT — Mission Control and Oil-Slick Segmentation
+
+This repository contains a local AI oil-slick segmentation backend, Windows startup scripts, an existing web dashboard, trained U-Net weights, and engineering materials.
+
+## Current components
+
+- `web/Ultron Sat Dashboard.html`: existing web dashboard.
+- `backend/app.py`: FastAPI service and trained-image inference endpoint.
+- `runs/oil_unet_full/best.pt`: existing U-Net ResNet34 checkpoint (**already present**). Do not overwrite without validation.
+- `A.I/train_oil_unet_csv.py`: training from CSV dataset split manifests.
+- `A.I/train_oil_unet.py`: alternate image/mask directory training.
+- `ULTRON_SAT_Launcher.bat`: starts local backend and serves dashboard.
+- `SETUP_ULTRON_SAT.bat`: creates Windows Python environment and installs dependencies.
+- `TRAIN_ULTRON_SAT.bat`: checks CSV dataset, runs smoke test or full training, and writes to *new* output paths.
+
+## Local setup (Windows)
+
+1. Install a compatible Python version and Git.
+2. Clone/download this repository.
+3. Run `SETUP_ULTRON_SAT.bat` once. Note: requirements install `torch` and computer-vision dependencies; training scripts additionally use `opencv-python` and `albumentations`.
+4. Run `ULTRON_SAT_Launcher.bat`.
+5. Browse to `http://127.0.0.1:8000/`. The backend must remain running for AI inference.
+
+## Training
+
+Put your licensed dataset at `DataSet/oilspill-detection-dataset-real/` with `splits/train.csv` and `splits/val.csv`. Each CSV must have `image_path` and `mask_path` columns. Paths are relative to the dataset root. The actual images and masks must exist at those paths. Do not assume they are included in this repository.
+
+Run `TRAIN_ULTRON_SAT.bat`. Start with the 1-epoch smoke test, inspect losses and image-mask alignment, then run full training. The full option writes to `runs/oil_unet_new/` so the existing checkpoint is preserved. Check IoU/Dice on a truly held-out test set before deployment. It does **not** automatically switch the backend to the new model.
+
+The backend currently expects a 256-pixel U-Net ResNet34 model at `runs/oil_unet_full/best.pt`. Training alternatives must match that architecture and preprocessing for inference. To serve a validated new checkpoint, set `ULTRON_CKPT` to the desired model path before starting the backend.
+
+## Website vs backend
+
+A single HTML file can be opened locally and hosted as a static GitHub Pages site for its browser-only experiences. **GitHub Pages cannot run Python/FastAPI, PyTorch inference, training, or Windows BAT files**. The AI `/analyze` endpoint needs a separately running backend. GitHub repository storage is not a GPU training service.
+
+## Latest ULTRA dashboard
+
+The latest HTML dashboard is a separate 5.5 MB artifact from the ChatGPT project workflow. The launcher will automatically prefer `web/Ultron_Sat_Mission_Control_ULTRA.html` **if that file is present**, and otherwise use the original existing dashboard. Verify the HTML has actually been uploaded before claiming the ULTRA dashboard is deployed.
+
+## Scientific limitations
+
+A segmentation mask indicates a candidate oil slick, not verified pollution. Results require labeled validation, sensor calibration, and domain checks. CubeSat orbit and battery examples are simulations unless an actual telemetry protocol is integrated. Do not use the drift demo for emergency response decisions.
+
+## Existing files
+
+Previous project work has been retained. The new launch/training utilities do not delete old runs, models or datasets.
