@@ -8,3 +8,5 @@ scipy
 torch
 torchvision
 segmentation-models-pytorch
+opencv-python
+albumentations
