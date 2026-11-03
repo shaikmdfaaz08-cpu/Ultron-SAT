@@ -461,6 +461,10 @@ def index():
         raise ApiError(404, "dashboard_missing", f"Dashboard file not found: {DASHBOARD}")
     # Inject a small UI enhancement without copying the large dashboard into GitHub again.
     html = DASHBOARD.read_text(encoding="utf-8")
+    # The CubeSat payload hardware was changed from ArduCAM to an ESP32 camera.
+    # Apply this to legacy dashboard text without rewriting the large HTML asset.
+    for old_label in ("ArduCAM", "Arducam", "ArduCam", "ARDUCAM"):
+        html = html.replace(old_label, "ESP32 camera")
     tag = '<script src="/ultron_runtime_patch.js" defer></script>'
     if tag not in html:
         html = html.replace("</body>", tag + "</body>")
