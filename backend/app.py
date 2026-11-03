@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import io
 import os
+import logging
 import threading
 import time
 import uuid
@@ -73,6 +74,7 @@ class ModelState:
 
 
 STATE = ModelState()
+LOGGER = logging.getLogger('ultron.models')
 
 
 def _torch_load(torch, path: Path):
@@ -93,9 +95,11 @@ def load_model() -> None:
         import segmentation_models_pytorch as smp
     except Exception as e:
         STATE.error = f"Could not import torch / segmentation_models_pytorch: {e}"
+        LOGGER.error("SAR model import failure: %s", STATE.error, exc_info=True)
         return
     if not CKPT_PATH.is_file():
         STATE.error = f"Checkpoint not found: {CKPT_PATH}"
+        LOGGER.error("SAR model missing checkpoint: %s", CKPT_PATH)
         return
     try:
         torch.set_num_threads(int(os.environ.get("ULTRON_THREADS", max(1, min(4, os.cpu_count() or 1)))))
@@ -116,6 +120,7 @@ def load_model() -> None:
         model.eval().to("cpu")
         st = CKPT_PATH.stat()
         STATE.model, STATE.torch, STATE.error = model, torch, None
+        LOGGER.warning("SAR checkpoint loaded: %s", CKPT_PATH)
         STATE.info = {
             "name": "U-Net / ResNet34 oil-spill segmenter",
             "architecture": "U-Net",
@@ -131,6 +136,7 @@ def load_model() -> None:
     except Exception as e:
         STATE.model = None
         STATE.error = f"Failed to load checkpoint {CKPT_PATH.name}: {e}"
+        LOGGER.exception("SAR checkpoint load FAILED: %s", STATE.error)
 
 
 def predict_probability(rgb: np.ndarray) -> np.ndarray:
