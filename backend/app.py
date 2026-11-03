@@ -410,6 +410,15 @@ def remask(analysis_id: str = Form(...),
     return build_result(entry, threshold, min_region_px, min_detect_percent, input_type, include_images)
 
 
+@app.get("/camera-samples")
+def camera_samples():
+    """Original optical camera test archive; separate from model training data."""
+    path = WEB_DIR / "camera_test_archive.html"
+    if not path.is_file():
+        raise ApiError(404, "gallery_missing", "Camera archive was not deployed.")
+    return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/")
 def index():
     if not DASHBOARD.is_file():
