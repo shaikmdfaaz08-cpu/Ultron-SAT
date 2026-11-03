@@ -25,7 +25,7 @@ import numpy as np
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from PIL import Image, ImageOps
 from scipy import ndimage as ndi
 
@@ -419,11 +419,24 @@ def camera_samples():
     return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/ultron_runtime_patch.js")
+def runtime_patch():
+    path = WEB_DIR / "ultron_runtime_patch.js"
+    if not path.is_file():
+        raise ApiError(404, "patch_missing", "Dashboard UI patch not installed.")
+    return FileResponse(path, media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/")
 def index():
     if not DASHBOARD.is_file():
         raise ApiError(404, "dashboard_missing", f"Dashboard file not found: {DASHBOARD}")
-    return FileResponse(DASHBOARD, headers={"Cache-Control": "no-store"})
+    # Inject a small UI enhancement without copying the large dashboard into GitHub again.
+    html = DASHBOARD.read_text(encoding="utf-8")
+    tag = '<script src="/ultron_runtime_patch.js" defer></script>'
+    if tag not in html:
+        html = html.replace("</body>", tag + "</body>")
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 if __name__ == "__main__":
