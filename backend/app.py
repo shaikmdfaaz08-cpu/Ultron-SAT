@@ -74,6 +74,7 @@ class ModelState:
 
 
 STATE = ModelState()
+MODEL_INIT_DONE = threading.Event()
 LOGGER = logging.getLogger('ultron.models')
 
 
@@ -292,9 +293,17 @@ def build_result(entry: dict, threshold: float, min_region_px: int, min_detect_p
 
 
 # --------------------------------------------------------------------------- app
+def _initialize_sar_model():
+    try:
+        load_model()
+    finally:
+        MODEL_INIT_DONE.set()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    threading.Thread(target=load_model, daemon=True).start()
+    MODEL_INIT_DONE.clear()
+    threading.Thread(target=_initialize_sar_model, daemon=True).start()
     yield
 
 
@@ -341,13 +350,22 @@ def _check_params(threshold: float, min_region_px: int, min_detect_percent: floa
 
 
 def _require_model():
+    # The model starts in a background thread. A request during cold startup
+    # must not fail immediately while the checkpoint is still initializing.
+    if STATE.model is None and not MODEL_INIT_DONE.is_set():
+        MODEL_INIT_DONE.wait(timeout=75)
     if STATE.model is None:
-        raise ApiError(503, "model_unavailable", STATE.error or "Model is not loaded.")
+        if not MODEL_INIT_DONE.is_set():
+            raise ApiError(503, "model_initializing",
+                           "SAR model is still initializing. Retry shortly.")
+        raise ApiError(503, "model_unavailable",
+                       STATE.error or "SAR model initialization failed.")
 
 
 @app.get("/health")
 def health():
     return {"status": "ok", "api_version": API_VERSION, "model_loaded": STATE.model is not None,
+            "model_loading": not MODEL_INIT_DONE.is_set(),
             "error": STATE.error, "model": STATE.info, "device": STATE.device,
             "limits": {"max_upload_mb": MAX_UPLOAD_BYTES // (1024 * 1024), "max_megapixels": MAX_PIXELS // 1_000_000}}
 
