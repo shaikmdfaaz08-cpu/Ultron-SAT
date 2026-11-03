@@ -1,6 +1,22 @@
 (function(){
 "use strict";
 function ready(){
+ // Rename only rendered UI text, never raw HTML, scripts, 3D code or shaders.
+ try{
+   const walk=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+   const edits=[];
+   while(walk.nextNode()){
+     const node=walk.currentNode, parent=node.parentElement;
+     if(parent && !parent.closest('script,style,svg,canvas,textarea,code,pre') && /arducam/i.test(node.nodeValue||'')) edits.push(node);
+   }
+   edits.forEach(node=>{node.nodeValue=node.nodeValue.replace(/arducam/gi,'ESP32 Cam')});
+   document.querySelectorAll('[title],[alt],[aria-label]').forEach(el=>{
+     for(const attr of ['title','alt','aria-label']){
+       const value=el.getAttribute(attr);
+       if(value && /arducam/i.test(value))el.setAttribute(attr,value.replace(/arducam/gi,'ESP32 Cam'));
+     }
+   });
+ }catch(e){console.warn('ESP32 camera label update skipped',e)}
  const detect=document.getElementById("detect"), stage=document.getElementById("stage"), canvas=document.getElementById("map"), slider=document.getElementById("ath"), value=document.getElementById("athV");
  if(!detect||!stage||!canvas||!slider||document.getElementById("ultronDetectionTools"))return;
  const css=document.createElement("style");css.textContent=`
