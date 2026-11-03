@@ -4,7 +4,8 @@ This repository contains a local AI oil-slick segmentation backend, Windows star
 
 ## Current components
 
-- `web/Ultron Sat Dashboard.html`: existing web dashboard.
+- `web/ULTRON_SAT_MISSION_CONTROL_V5_IOS_GLASS_DOCK.html`: current hosted dashboard (selected by Render `ULTRON_DASHBOARD`).
+- `backend/rgb_payload.py`: experimental six-class image analysis for the ESP32 camera payload, separate from SAR inference.
 - `backend/app.py`: FastAPI service and trained-image inference endpoint.
 - `runs/oil_unet_full/best.pt`: existing U-Net ResNet34 checkpoint (**already present**). Do not overwrite without validation.
 - `A.I/train_oil_unet_csv.py`: training from CSV dataset split manifests.
@@ -33,9 +34,15 @@ The backend currently expects a 256-pixel U-Net ResNet34 model at `runs/oil_unet
 
 A single HTML file can be opened locally and hosted as a static GitHub Pages site for its browser-only experiences. **GitHub Pages cannot run Python/FastAPI, PyTorch inference, training, or Windows BAT files**. The AI `/analyze` endpoint needs a separately running backend. GitHub repository storage is not a GPU training service.
 
-## Latest ULTRA dashboard
+## Current hardware and hosted dashboard
 
-The latest HTML dashboard is a separate 5.5 MB artifact from the ChatGPT project workflow. The launcher will automatically prefer `web/Ultron_Sat_Mission_Control_ULTRA.html` **if that file is present**, and otherwise use the original existing dashboard. Verify the HTML has actually been uploaded before claiming the ULTRA dashboard is deployed.
+The onboard imaging payload is now an **ESP32 camera**, replacing the previous ArduCAM hardware reference. This is a hardware documentation/UI terminology update; the existing optical model has **not** been retrained or validated using ESP32 camera image data. Upload and analyze images through the separate `/rgb` route.
+
+Render serves `web/ULTRON_SAT_MISSION_CONTROL_V5_IOS_GLASS_DOCK.html` with `ULTRON_DASHBOARD` set to its filename. The main FastAPI app adds runtime navigation/detection updates and displays ESP32 terminology for remaining legacy dashboard labels.
+
+## Hosting performance
+
+The current Render free service has only 512 MB RAM and limited CPU, making PyTorch cold starts and memory usage problematic. A paid **2 GB or higher** instance (Render 1c-2g, Railway Hobby with allocated memory, Koyeb 2 GB, or Fly.io 2 GB) is more realistic for this workload. Migration does not automatically improve model accuracy, which requires validated labeled ESP32 optical imagery.
 
 ## Scientific limitations
 
