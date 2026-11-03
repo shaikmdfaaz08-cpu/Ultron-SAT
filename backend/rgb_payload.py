@@ -1,4 +1,4 @@
-"""Optional six-class LADOS RGB payload for ArduCAM/aerial photos.
+"""Optional six-class LADOS RGB payload for ESP32 camera/aerial photos.
 
 Separate from the existing binary SAR model. Set ULTRON_RGB_CKPT to the
 fine-tuned state_dict path (default: runs/oil_rgb_v3/best_rgb_model.pt).
@@ -96,7 +96,7 @@ def rgb_analyze(file: UploadFile = File(...)):
                 "classes": [{"name": c, "pixel_fraction": round(float(counts[i]) / (w*h), 6)} for i, c in enumerate(CLASSES)],
                 "overlay_png_b64": _png_b64(over),
                 "mask_png_b64": _png_b64(colored),
-                "caution": "Experimental color-photograph segmentation, not proof of a real oil spill. Not validated on ArduCAM images."}
+                "caution": "Experimental color-photograph segmentation, not proof of a real oil spill. Not validated on images captured by the ESP32 camera."}
     except Exception as exc:
         return JSONResponse({"error": f"Inference failed: {exc}"}, status_code=500)
 
@@ -104,7 +104,7 @@ def rgb_analyze(file: UploadFile = File(...)):
 def rgb_page():
     return """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ULTRON SAT — RGB Payload</title>
 <style>body{font:16px system-ui;background:#071421;color:#e8f4ff;max-width:950px;margin:32px auto;padding:18px}a{color:#72daff}.panel{background:#102b3c;padding:24px;border-radius:16px;margin:15px 0}button{background:#1d98b0;border:0;padding:12px 20px;border-radius:9px;color:white;cursor:pointer}img{max-width:100%;border-radius:9px}input{max-width:100%}#results{white-space:pre-wrap}</style></head><body>
-<a href="/">← Mission Control</a> &nbsp; <a href="/camera-samples">18 CubeSat Camera Test Photos</a><h1>ULTRON SAT / RGB Camera Payload</h1><p>Color photograph segmentation: emulsion, oil, oil-platform, sheen, ship, background. Separate from the SAR model.</p>
+<a href="/">← Mission Control</a> &nbsp; <a href="/camera-samples">CubeSat Camera Test Photos</a><h1>ULTRON SAT / RGB Camera Payload</h1><p>ESP32 camera image analysis (experimental): emulsion, oil, oil-platform, sheen, ship, background. Separate from the SAR model.</p>
 <div class="panel"><label>Camera JPEG / PNG / TIFF <input id="file" type="file" accept="image/jpeg,image/png,image/tiff"></label> <button id="go">Analyze camera image</button><p id="status"></p></div>
 <div class="panel"><h2>Detection overlay</h2><img id="overlay" alt="Result will appear here"><div id="results"></div></div><p>Experimental model. Results require human verification; camera domain performance has not been measured.</p>
 <script>document.getElementById('go').onclick=async()=>{const f=document.getElementById('file').files[0],s=document.getElementById('status'),r=document.getElementById('results'),img=document.getElementById('overlay');if(!f){s.textContent='Choose an image first';return} s.textContent='Analyzing...';r.textContent='';img.removeAttribute('src');const fd=new FormData();fd.append('file',f);try{const response=await fetch('/rgb/analyze',{method:'POST',body:fd});const d=await response.json();if(!response.ok)throw Error(d.error||'Analysis failed');img.src='data:image/png;base64,'+d.overlay_png_b64;r.textContent=d.classes.map(x=>x.name+': '+(x.pixel_fraction*100).toFixed(2)+'%').join(String.fromCharCode(10))+String.fromCharCode(10,10)+d.caution;s.textContent='Analysis completed'}catch(e){s.textContent='Error: '+e.message}};</script></body></html>"""
