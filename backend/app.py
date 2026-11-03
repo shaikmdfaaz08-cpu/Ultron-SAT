@@ -45,7 +45,7 @@ MEAN = np.array([0.485, 0.456, 0.406], np.float32)  # ImageNet normalisation (as
 STD = np.array([0.229, 0.224, 0.225], np.float32)
 # How the 256x256 resize is done must match training/predict_oil_unet.py.
 # "pil" = Pillow bilinear (default). Set ULTRON_RESIZE=cv2 if your script uses cv2.INTER_LINEAR.
-RESIZE_BACKEND = os.environ.get("ULTRON_RESIZE", "pil").lower()
+RESIZE_BACKEND = os.environ.get("ULTRON_RESIZE", "cv2_area").lower()
 
 MAX_UPLOAD_BYTES = int(os.environ.get("ULTRON_MAX_MB", "50")) * 1024 * 1024
 MAX_PIXELS = int(os.environ.get("ULTRON_MAX_PIXELS", "36000000"))  # ~6000 x 6000 locally
@@ -143,7 +143,11 @@ def load_model() -> None:
 def predict_probability(rgb: np.ndarray) -> np.ndarray:
     """rgb: HxWx3 uint8 -> 256x256 float32 sigmoid probability map (same preprocessing as training)."""
     torch = STATE.torch
-    if RESIZE_BACKEND == "cv2":
+    if RESIZE_BACKEND in ("cv2_area", "cv2"):
+        import cv2
+        # Match A.I/train_oil_unet.py / SegSet exactly (production checkpoint).
+        small = cv2.resize(rgb, (INPUT_SIZE, INPUT_SIZE), interpolation=cv2.INTER_AREA)
+    elif RESIZE_BACKEND == "cv2_linear":
         import cv2
         small = cv2.resize(rgb, (INPUT_SIZE, INPUT_SIZE), interpolation=cv2.INTER_LINEAR)
     else:
