@@ -293,6 +293,10 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="ULTRON SAT local API", version=API_VERSION, lifespan=lifespan)
+
+# Optional six-class color camera payload; does not replace SAR inference.
+from backend.rgb_payload import router as rgb_router
+app.include_router(rgb_router)
 app.add_middleware(
     CORSMiddleware,
     # Only needed if the dashboard is opened as a file:// page (origin "null") or from another local port.
