@@ -44,7 +44,7 @@ function ready(){
   comp.appendChild(header);
   const canvas=document.createElement('canvas');canvas.width=800;canvas.height=500;canvas.setAttribute('aria-label','Before and after detected oil comparison');
   comp.appendChild(canvas);
-  const label=document.createElement('label');label.textContent='Original image  ← Drag comparison →  Candidate oil overlay';
+  const label=document.createElement('label');label.textContent='Candidate oil overlay (left)  ← Drag →  Original image (right)';
   const pct=document.createElement('span');pct.textContent='50%';label.append(pct);comp.append(label);
   const slider=document.createElement('input');slider.type='range';slider.min='0';slider.max='100';slider.value='50';slider.setAttribute('aria-label','Slide to compare original image and AI oil mask');comp.append(slider);
   row.insertAdjacentElement('beforebegin',comp);
