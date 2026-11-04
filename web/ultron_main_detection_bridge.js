@@ -1,7 +1,7 @@
 (()=>{'use strict';
 /* ULTRON-SAT: reuse the SAME verified browser U-Net detection in original
    Mission Control panels. No duplicate model/no fake masks. */
-let latest=null,forecast=null,compare=.96,frame=48;
+let latest=null,forecast=null,compare=.96,frame=48,playing=false,clock=0,lastTick=0,animationId=0,particleSeed=[];
 const hours=[6,12,24,48],hues=['#4be5e8','#5fb8ff','#a88bff','#ff7f9a'];
 const $=(selector,root=document)=>root.querySelector(selector);
 function make(tag,text,parent){const el=document.createElement(tag);if(text!=null)el.textContent=text;if(parent)parent.appendChild(el);return el}
@@ -50,13 +50,18 @@ function seeds(){
  return out;
 }
 function shift(hour,w,h){
- if(forecast?.[hour]){
-  const scale=Number(forecast.scale);
-  if(scale>0)return{x:forecast[hour].east/scale*w/latest.width,y:-forecast[hour].north/scale*h/latest.height};
+ if(forecast?.[6]&&forecast.scale>0){
+  const a=Math.max(0,Math.min(48,hour));
+  const lo=Math.floor(a),hi=Math.ceil(a);
+  // Hourly forecast vectors, if supplied; otherwise interpolate the existing milestones.
+  const milestones=[0,6,12,24,48];
+  let left=0,right=48;
+  for(let i=0;i<milestones.length-1;i++)if(a>=milestones[i]&&a<=milestones[i+1]){left=milestones[i];right=milestones[i+1];break}
+  const p=forecast[left]||{east:0,north:0},n=forecast[right]||p,f=right===left?0:(a-left)/(right-left);
+  const east=p.east+(n.east-p.east)*f,north=p.north+(n.north-p.north)*f;
+  return{x:east/forecast.scale*w/latest.width,y:-north/forecast.scale*h/latest.height};
  }
  const v=selectedManual(),a=vector(.03*v.wind*3.6,(v.windFrom+180)%360),b=vector(v.current*3.6,v.currentTo);
- // Manual sliders are m/s (convert to km/h); without georeferencing this is
- // display-only movement in fractional canvas coordinates.
  const dx=(a.x+b.x)*hour,dy=(a.y+b.y)*hour;
  return{x:dx*.32,y:-dy*.32};
 }
@@ -75,20 +80,49 @@ function redrawDrift(){
  if(!latest||!driftCanvas)return;
  const cv=driftCanvas,w=cv.width,h=cv.height,ctx=cv.getContext('2d');
  imageView(ctx,cv,w,h);
- const ss=seeds();
- // Particle snapshots are seeded inside the model's actual flagged pixels.
- for(let k=0;k<hours.length;k++){
-  const t=hours[k];if(t>frame)continue;
-  const d=shift(t,w,h);ctx.fillStyle=hues[k];
-  for(const p of ss){const x=p.x*w+d.x,y=p.y*h+d.y;if(x<0||y<0||x>w||y>h)continue;ctx.beginPath();ctx.arc(x,y,Math.max(1.3,w/360),0,Math.PI*2);ctx.fill()}
+ const ss=particleSeed;
+ const hoursNow=Math.max(0,Math.min(48,clock));
+ const path=shift(hoursNow,w,h);
+ const t=hoursNow/48;
+ // Show the real AI detected outline at the observed location.
+ drawMask(ctx,w,h,'#f7a94a',0,0,.24);
+ // Animated Lagrangian particles seeded ONLY in the model-predicted slick.
+ for(let i=0;i<ss.length;i++){
+  const p=ss[i],variation=1+0.06*Math.sin(i*14.19),spread=Math.sqrt(hoursNow/48)*Math.max(0,w*.017);
+  const jx=spread*Math.sin(i*12.9898+hoursNow*.13),jy=spread*Math.cos(i*8.321+hoursNow*.13);
+  const x=p.x*w+path.x*variation+jx,y=p.y*h+path.y*variation+jy;
+  if(x<0||y<0||x>=w||y>=h)continue;
+  ctx.beginPath();ctx.fillStyle=i%5===0?'#6beafd':'#ffab62';
+  ctx.arc(x,y,i%7===0?3:2.2,0,Math.PI*2);ctx.fill();
  }
- ctx.fillStyle='#021321ca';ctx.fillRect(8,7,Math.min(w-16,280),32);
- ctx.font='bold '+Math.max(12,Math.round(w/55))+'px system-ui';ctx.fillStyle='#e7f9ff';ctx.fillText('Detected slick drift · +'+frame+'h',17,28);
+ // Mark reference seed and motion trail for readable evolution.
+ const points=[0,6,12,24,48].filter(x=>x<=hoursNow);
+ for(const hr of points.slice(1)){
+  const p=shift(hr,w,h);
+  ctx.strokeStyle=hr===48?'#fa86a5':'#56d7ea';ctx.lineWidth=1.6;ctx.setLineDash([5,5]);
+  ctx.beginPath();ctx.moveTo(w*.5,h*.5);ctx.lineTo(w*.5+p.x,h*.5+p.y);ctx.stroke();ctx.setLineDash([]);
+ }
+ ctx.fillStyle='#021321d9';ctx.fillRect(8,8,Math.min(w-16,345),55);
+ ctx.fillStyle='#eaffff';ctx.font='bold 15px system-ui';ctx.fillText('Oil slick drift · +'+hoursNow.toFixed(1)+' of 48 h',18,28);
+ ctx.font='12px system-ui';ctx.fillStyle='#93e4f3';
+ ctx.fillText(forecast?'Forecast: hourly wind + ocean currents':'Scenario: adjustable wind + current sliders',18,48);
  if(driftStatus){
-  const data=forecast?'Forecast-driven (Open-Meteo winds + marine currents)':'Manual slider scenario (not live weather)';
-  driftStatus.textContent=data+' · '+ss.length+' particles sampled from AI mask · select 6/12/24/48 hours below';
+  driftStatus.textContent=(forecast?'Forecast-driven experimental estimate':'Illustrative slider-driven scenario (not measured weather)')+
+    ' · '+ss.length+' moving particles originating inside the AI detection mask.';
  }
 }
+function animate(ts){
+ if(!playing)return;
+ if(lastTick){
+  const dt=Math.min(.1,(ts-lastTick)/1000);
+  clock+=dt*3.3; // 48 forecast hours in about 15 seconds
+  if(clock>=48)clock=0;
+ }
+ lastTick=ts;redrawDrift();
+ animationId=requestAnimationFrame(animate);
+}
+function startAnimation(){if(!latest)return;cancelAnimationFrame(animationId);lastTick=0;playing=true;animationId=requestAnimationFrame(animate)}
+function pauseAnimation(){playing=false;cancelAnimationFrame(animationId);lastTick=0;redrawDrift()}
 function setupOriginal(){
  const map=$('#map'),stage=$('#stage');
  if(!stage||!map||originalOverlay)return;
@@ -114,30 +148,38 @@ function setupOriginal(){
 function setupDrift(){
  if(driftCanvas)return;
  const {heading,section,sliders}=getControls();
- if(!heading||!section)return;
- driftCanvas=document.createElement('canvas');driftCanvas.id='ultronMainDriftCanvas';driftCanvas.width=800;driftCanvas.height=470;canvasStyle(driftCanvas);
+ if(!heading)return;
+ const parent=section||heading.parentElement;
+ // Restore the original drift canvas with original photo behind moving AI particles.
+ driftCanvas=document.createElement('canvas');driftCanvas.id='ultronMainDriftCanvas';driftCanvas.width=800;driftCanvas.height=480;canvasStyle(driftCanvas);
  heading.insertAdjacentElement('afterend',driftCanvas);
- const status=make('p','Run the SAR AI to load the image and seed the drift model.',null);
+ const status=make('p','Analyze a SAR image above to animate the predicted oil-slick drift.',null);
  status.id='ultronMainDriftStatus';status.style.cssText='font:12px system-ui;color:#a8d4e7;margin:8px 0';
  driftCanvas.insertAdjacentElement('afterend',status);driftStatus=status;
- const buttons=make('div',null,null);buttons.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:10px 0';
- status.insertAdjacentElement('afterend',buttons);
- for(const h of hours){const b=make('button','+'+h+' hours',buttons);b.type='button';b.style.cssText='background:#1b516e;color:#eaffff;border:1px solid #4da1b5;border-radius:8px;padding:8px 12px;cursor:pointer';b.onclick=()=>{frame=h;redrawDrift()}}
- // Hide only the old blank drift canvas, not sliders or other explanation.
- const all=[...section.querySelectorAll('canvas')];for(const cv of all){if(cv!==driftCanvas && !cv.closest('#ultronInlineAI'))cv.style.display='none'}
- const old=[...section.querySelectorAll('*')].find(el=>el.children.length===0&&/Analyse an image to see the drift ensemble/i.test(el.textContent||''));
+ const toolbar=make('div',null,null);toolbar.id='ultronDriftTimeline';
+ toolbar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 20px';
+ status.insertAdjacentElement('afterend',toolbar);
+ const play=make('button','Pause animation',toolbar);
+ play.type='button';play.style.cssText='background:#267ca0;color:white;border:1px solid #4da1b5;border-radius:8px;padding:8px 12px;cursor:pointer';
+ play.onclick=()=>{if(playing){pauseAnimation();play.textContent='Play animation'}else{startAnimation();play.textContent='Pause animation'}};
+ for(const hr of [6,12,24,48]){const b=make('button','+'+hr+' h',toolbar);b.type='button';b.style.cssText='background:#1b516e;color:#eaffff;border:1px solid #4da1b5;border-radius:8px;padding:8px 12px;cursor:pointer';b.onclick=()=>{clock=hr;pauseAnimation();play.textContent='Play animation'};}
+ const reset=make('button','Restart 0–48 h',toolbar);reset.type='button';reset.style.cssText='background:#1b516e;color:#eaffff;border:1px solid #4da1b5;border-radius:8px;padding:8px 12px;cursor:pointer';
+ reset.onclick=()=>{clock=0;startAnimation();play.textContent='Pause animation'};
+ // Remove old inactive output but keep functional manual weather sliders.
+ const all=[...parent.querySelectorAll('canvas')];for(const cv of all){if(cv!==driftCanvas && !cv.closest('#ultronInlineAI'))cv.style.display='none'}
+ const old=[...parent.querySelectorAll('*')].find(el=>el.children.length===0&&/Analyse an image to see the drift ensemble/i.test(el.textContent||''));
  if(old)old.style.display='none';
  sliders.slice(0,4).forEach(x=>x.addEventListener('input',()=>{forecast=null;redrawDrift()}));
 }
 function activate(e){
  latest=e.detail; if(!latest?.mask||latest.mask.length!==65536||!latest.sourceCanvas)return;
- forecast=null;setupOriginal();setupDrift();
+ forecast=null;clock=0;particleSeed=seeds();setupOriginal();setupDrift();
  if(originalOverlay){originalOverlay.style.display='block';const n=$('#ultronOriginalMaskNote');if(n)n.style.display='block';originalOverlay.width=latest.width;originalOverlay.height=latest.height}
  if(driftCanvas){driftCanvas.width=800;driftCanvas.height=Math.max(300,Math.round(800*latest.height/latest.width))}
- redrawOriginal();redrawDrift();
+ redrawOriginal();redrawDrift();startAnimation();
 }
 document.addEventListener('ultron:sar-detection',activate);
-document.addEventListener('ultron:drift-forecast',e=>{if(!latest)return;forecast=e.detail;redrawDrift()});
+document.addEventListener('ultron:drift-forecast',e=>{if(!latest)return;forecast=e.detail;clock=0;startAnimation()});
 function init(){setupOriginal();setupDrift();window.addEventListener('resize',()=>{if(latest){redrawOriginal();redrawDrift()}})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
