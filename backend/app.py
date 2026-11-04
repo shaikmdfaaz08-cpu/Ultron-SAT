@@ -326,7 +326,8 @@ app.include_router(rgb_router)
 app.add_middleware(
     CORSMiddleware,
     # Only needed if the dashboard is opened as a file:// page (origin "null") or from another local port.
-    allow_origins=["http://127.0.0.1:8000", "http://localhost:8000", "null"],
+    allow_origins=["http://127.0.0.1:8000", "http://localhost:8000", "null",
+                   "https://shaikmdfaaz08-cpu.github.io"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
