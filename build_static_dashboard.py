@@ -22,6 +22,7 @@ html = source.read_text(encoding="utf-8")
 if "</body>" not in html.lower():
     raise SystemExit("Dashboard body closing tag missing; refusing to publish broken HTML.")
 tags = (
+    '<script src="ultron_browser_oil_ai.js" defer></script>'
     '<script src="ultron_ai_remote_bridge.js" defer></script>'
     '<script src="ultron_runtime_patch.js" defer></script>'
     '<script src="ultron_esp32_telemetry.js" defer></script>'
@@ -30,8 +31,8 @@ tags = (
 # Mirror the injection performed by FastAPI, preserving HTML/shaders/3D unchanged.
 if "ultron_esp32_telemetry.js" not in html:
     html = html.replace("</body>", tags + "</body>")
-elif "ultron_ai_remote_bridge.js" not in html:
-    html = html.replace("</body>", '<script src="ultron_ai_remote_bridge.js" defer></script><script src="static_cloud_notice.js" defer></script></body>')
+elif "ultron_browser_oil_ai.js" not in html:
+    html = html.replace("</body>", '<script src="ultron_browser_oil_ai.js" defer></script><script src="ultron_ai_remote_bridge.js" defer></script><script src="static_cloud_notice.js" defer></script></body>')
 (out / "index.html").write_text(html, encoding="utf-8")
 (out / ".nojekyll").write_text("", encoding="utf-8")
 print(f"Static site ready, original dashboard {len(html):,} characters; copied web assets.")
