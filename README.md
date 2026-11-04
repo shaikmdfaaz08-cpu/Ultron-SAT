@@ -44,6 +44,17 @@ Render serves `web/ULTRON_SAT_MISSION_CONTROL_V5_IOS_GLASS_DOCK.html` with `ULTR
 
 The current Render free service has only 512 MB RAM and limited CPU, making PyTorch cold starts and memory usage problematic. A paid **2 GB or higher** instance (Render 1c-2g, Railway Hobby with allocated memory, Koyeb 2 GB, or Fly.io 2 GB) is more realistic for this workload. Migration does not automatically improve model accuracy, which requires validated labeled ESP32 optical imagery.
 
+## ESP32 telemetry dashboard (November 2026)
+
+The existing full-size 3D dashboard is `web/ULTRON_SAT_MISSION_CONTROL_V5_IOS_GLASS_DOCK.html`.
+The **live ESP32 readings extension** is `web/ultron_esp32_telemetry.js`, which is injected by `backend/app.py` when Render serves the dashboard. The extension is kept separate from the large 3D HTML file to avoid altering shaders, 3D animation logic or other dashboard features.
+
+**Live application:** https://ultron-sat.onrender.com/
+
+**Supported readings:** TMP102 temperature; INA219 monitored 5 V bus voltage, current and power; MPU6050 accelerometer and gyroscope; LDR ADC light reading. The panel reads newline-delimited JSON telemetry from a USB-connected ESP32 or ground LoRa receiver using desktop Chromium Web Serial at 115200 baud. It also imports historical SD `.log` files and exports CSV. Samples typically arrive every 30 seconds per the supplied firmware.
+
+**Important:** The sensor panel does **not** automatically receive readings through the public Render server. USB serial works on the computer to which the hardware is connected, with a supported browser and user authorization. The separate ESP32-CAM sketch stores images on SD, not a live internet camera feed. The orbit, solar and battery graphics remain illustrative simulations unless explicitly wired to hardware. Changing ArduCAM text to ESP32 Cam does not retrain or recalibrate the camera AI model.
+
 ## Scientific limitations
 
 A segmentation mask indicates a candidate oil slick, not verified pollution. Results require labeled validation, sensor calibration, and domain checks. CubeSat orbit and battery examples are simulations unless an actual telemetry protocol is integrated. Do not use the drift demo for emergency response decisions.
