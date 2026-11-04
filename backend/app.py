@@ -26,7 +26,7 @@ import numpy as np
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, RedirectResponse
 from PIL import Image, ImageOps
 from scipy import ndimage as ndi
 
@@ -476,6 +476,9 @@ def runtime_patch():
 
 @app.get("/")
 def index():
+    # The submitted Render URL stays constant while the RAM-free static site hosts Mission Control.
+    if os.environ.get("ULTRON_DASHBOARD_ONLY", "0") == "1":
+        return RedirectResponse("https://shaikmdfaaz08-cpu.github.io/Ultron-SAT/", status_code=302)
     if not DASHBOARD.is_file():
         raise ApiError(404, "dashboard_missing", f"Dashboard file not found: {DASHBOARD}")
     # Inject a small UI enhancement without copying the large dashboard into GitHub again.
