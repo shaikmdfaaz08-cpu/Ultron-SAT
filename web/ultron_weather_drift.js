@@ -76,7 +76,14 @@ function makeUI(){
  for(const hour of times){const b=tag('button',select,'View +'+hour+'h');b.type='button';b.dataset.hour=hour;b.addEventListener('click',()=>choose(hour))}
  document.addEventListener('ultron:sar-detection',ev=>{
   const d=ev.detail;if(!d?.mask||d.mask.length!==65536)return;
-  last=d;frames=null;viz.style.display='none';stats.textContent='';status.textContent='SAR detection ready. Enter an actual ocean coordinate and km/pixel, then fetch forecasts.';
+  last=d;frames=null;viz.style.display='none';stats.textContent='';
+  if(lat.value.trim() && lon.value.trim() && scale.value.trim()){
+   status.textContent='Image analyzed: automatically updating the next 48 hours from the saved geographic inputs…';
+   // Existing valid geographical context permits automatic live forecast refresh.
+   Promise.resolve().then(()=>run.click());
+  }else{
+   status.textContent='SAR detection ready. Enter actual ocean coordinates and km/pixel to enable automatically refreshed 48-hour forecasts. Without them, the main animated drift uses labeled manual slider values.';
+  }
  });
  run.onclick=async()=>{
   if(!last){status.textContent='Analyze an image with the trained SAR U-Net above first.';return}
