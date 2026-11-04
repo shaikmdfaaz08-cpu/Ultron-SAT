@@ -23,11 +23,11 @@ document.addEventListener('click',event=>{
  const launcher=document.getElementById('ultronAiLaunch');
  if(!launcher)return;
  event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
- launcher.click();
+ if(typeof window.ultronFocusInlineAI==='function')window.ultronFocusInlineAI();else launcher.click();
  const file=selectedImage();
  if(file){
   const panel=document.getElementById('ultronBrowserAI');
-  const picker=panel?.querySelector('input[type="file"]');
+  const picker=document.querySelector('#ultronInlineAI input[type="file"]')||panel?.querySelector('input[type="file"]');
   if(picker && typeof DataTransfer!=='undefined'){
    try{const dt=new DataTransfer();dt.items.add(file);picker.files=dt.files;picker.dispatchEvent(new Event('change',{bubbles:true}))}catch{}
   }
