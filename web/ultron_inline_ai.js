@@ -21,7 +21,10 @@ function ready(){
  css.textContent=`
  #ultronInlineAI{position:relative;width:100%;max-width:100%;margin:18px 0 25px;box-sizing:border-box;scroll-margin-top:24px}
  #ultronInlineAI .aiBox{box-sizing:border-box;width:100%;max-width:none;padding:18px;background:linear-gradient(140deg,#102a40,#0b1f33);border:1px solid #427b9b;border-radius:16px;box-shadow:none}
- #ultronInlineAI .imageRow{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #ultronInlineAI .imageRow{grid-template-columns:minmax(0,1fr)}
+ #ultronInlineAI .imageRow > div:not(#ultronComparison){display:none!important}
+ #ultronInlineAI #ultronComparison.active{display:block;width:100%}
+ #ultronInlineAI #ultronComparison canvas{max-height:530px;object-fit:contain}
  #ultronInlineAI .imageRow canvas{max-width:100%;width:100%;height:auto}
  #ultronInlineAI input[type=file]{max-width:100%}
  #ultronComparison{display:none;margin:15px 0}
@@ -92,7 +95,8 @@ function ready(){
    }else el.remove();
   }
  }
- removeOldDrift();
+ // Keep the original drift section header: the animation bridge replaces its blank canvas.
+ // removeOldDrift() intentionally disabled.
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
 })();
