@@ -447,6 +447,15 @@ def camera_samples():
     return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/ultron_esp32_telemetry.js")
+def esp32_telemetry_script():
+    path = WEB_DIR / "ultron_esp32_telemetry.js"
+    if not path.is_file():
+        raise ApiError(404, "telemetry_script_missing", "ESP32 telemetry script not installed.")
+    return FileResponse(path, media_type="application/javascript",
+                        headers={"Cache-Control": "no-store"})
+
+
 @app.get("/ultron_runtime_patch.js")
 def runtime_patch():
     path = WEB_DIR / "ultron_runtime_patch.js"
@@ -461,9 +470,10 @@ def index():
         raise ApiError(404, "dashboard_missing", f"Dashboard file not found: {DASHBOARD}")
     # Inject a small UI enhancement without copying the large dashboard into GitHub again.
     html = DASHBOARD.read_text(encoding="utf-8")
-    tag = '<script src="/ultron_runtime_patch.js" defer></script>'
-    if tag not in html:
-        html = html.replace("</body>", tag + "</body>")
+    tags = ('<script src="/ultron_runtime_patch.js" defer></script>'
+            '<script src="/ultron_esp32_telemetry.js" defer></script>')
+    if '/ultron_esp32_telemetry.js' not in html:
+        html = html.replace("</body>", tags + "</body>")
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
