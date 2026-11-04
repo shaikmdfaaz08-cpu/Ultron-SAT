@@ -307,7 +307,14 @@ def _initialize_sar_model():
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     MODEL_INIT_DONE.clear()
-    threading.Thread(target=_initialize_sar_model, daemon=True).start()
+    if os.environ.get("ULTRON_DASHBOARD_ONLY", "0") == "1":
+        # Keep the existing mission-control page, USB telemetry, and 3D visuals
+        # online on Render Free without importing/loading torch at startup.
+        STATE.error = "Cloud AI inference is temporarily disabled to protect dashboard availability. CubeSat USB telemetry and simulations remain available."
+        MODEL_INIT_DONE.set()
+        LOGGER.warning("Dashboard-only mode: SAR model disabled to avoid Render Free out-of-memory restarts")
+    else:
+        threading.Thread(target=_initialize_sar_model, daemon=True).start()
     yield
 
 
@@ -354,6 +361,9 @@ def _check_params(threshold: float, min_region_px: int, min_detect_percent: floa
 
 
 def _require_model():
+    if os.environ.get("ULTRON_DASHBOARD_ONLY", "0") == "1":
+        raise ApiError(503, "ai_temporarily_disabled",
+                       "Cloud AI analysis is temporarily disabled to keep the dashboard available on Render Free. ESP32 USB telemetry still works.")
     # The model starts in a background thread. A request during cold startup
     # must not fail immediately while the checkpoint is still initializing.
     if STATE.model is None and not MODEL_INIT_DONE.is_set():
