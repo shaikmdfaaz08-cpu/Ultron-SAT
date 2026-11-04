@@ -114,6 +114,7 @@ function makeUI(){
     if(times.includes(hour))state[hour]={east,north,km:Math.hypot(east,north)};
    }
    frames=state;
+   document.dispatchEvent(new CustomEvent('ultron:drift-forecast',{detail:state}));
    viz.style.display='block';
    stats.textContent='48h predicted displacement: '+state[48].km.toFixed(2)+' km ('+state[48].east.toFixed(2)+' km east, '+state[48].north.toFixed(2)+' km north).\n'+
     '+6h: '+state[6].km.toFixed(2)+' km  ·  +12h: '+state[12].km.toFixed(2)+' km  ·  +24h: '+state[24].km.toFixed(2)+' km  ·  +48h: '+state[48].km.toFixed(2)+' km.\n'+
