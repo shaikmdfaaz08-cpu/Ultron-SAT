@@ -23,7 +23,8 @@ if "</body>" not in html.lower():
     raise SystemExit("Dashboard body closing tag missing; refusing to publish broken HTML.")
 tags = (
     '<script src="ultron_browser_oil_ai.js" defer></script>'
-    '<script src="ultron_weather_drift.js" defer></script>'
+    '<script src="ultron_weather_drift.js" defer></script><script src="ultron_inline_ai.js" defer></script>'
+    '<script src="ultron_inline_ai.js" defer></script>'
     '<script src="ultron_ai_button_fix.js" defer></script>'
     '<script src="ultron_ai_remote_bridge.js" defer></script>'
     '<script src="ultron_runtime_patch.js" defer></script>'
