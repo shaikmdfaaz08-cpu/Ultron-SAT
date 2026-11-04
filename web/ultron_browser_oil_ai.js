@@ -98,6 +98,15 @@ run.onclick=async()=>{
   oc.putImageData(rgba,0,0);
   const pct=100*n/(up.width*up.height);
   result.textContent='Candidate pixels: '+pct.toFixed(2)+'% · Model completed in '+Math.round(performance.now()-start)+' ms · '+(pct>=.1?'Candidate region flagged':'Below 0.1% reporting threshold')+'.';
+  // Publish the actual model-predicted 256x256 segmentation probabilities so
+  // the weather-based drift module can advect the SAME detected slick.
+  const modelMask=new Uint8Array(256*256);
+  for(let j=0;j<65536;j++)modelMask[j]=map.data[j*4]>=128?1:0;
+  document.dispatchEvent(new CustomEvent('ultron:sar-detection',{
+    detail:{mask:modelMask,width:im.naturalWidth,height:im.naturalHeight,
+            sourceCanvas:original,model:'SAR U-Net ResNet34',threshold:0.5,
+            generatedAt:new Date().toISOString()}
+  }));
   setStatus('Analysis complete. This is an experimental SAR segmentation result, not confirmed contamination.');
  }catch(e){setStatus('AI unavailable: '+(e?.message||e));console.error('ULTRON browser oil model',e)}
  finally{run.disabled=false}
