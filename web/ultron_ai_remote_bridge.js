@@ -36,6 +36,12 @@ function init(){
     origin=v;state.textContent=v?'AI endpoint configured':'AI offline · USB telemetry available';
     if(v)nativeFetch(v+'/health',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(x=>state.textContent=x.model_loaded?'AI connected · model ready':x.model_loading?'AI connected · model loading':'AI backend online · model unavailable').catch(e=>state.textContent='AI connection failed: '+e.message);
   });
+  wrap.id='ultronRemoteAiControls';
+  // Browser ONNX AI works independently; keep the optional remote-backend control
+  // on desktop while removing its oversized floating toolbar from phone layouts.
+  const style=document.createElement('style');
+  style.textContent='@media(max-width:768px){#ultronRemoteAiControls{display:none!important}}';
+  document.head.append(style);
   wrap.append(b,state);document.body.append(wrap);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
