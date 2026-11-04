@@ -30,6 +30,8 @@ _load_error = None
 
 def _model_or_error():
     global _model, _load_error
+    if os.environ.get("ULTRON_DASHBOARD_ONLY", "0") == "1":
+        return None, "Cloud AI is temporarily disabled to protect the dashboard on Render Free; ESP32 telemetry remains available."
     with _lock:
         if _model is not None:
             return _model, None
