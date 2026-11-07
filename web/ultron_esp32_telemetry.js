@@ -6,7 +6,55 @@ const el=document.createElement('section');el.id='espHw';el.innerHTML='<div clas
 const anchor=document.querySelector('main > .oobanner')||document.querySelector('main > section');if(anchor?.parentNode)anchor.after(el);else(document.querySelector('main')||document.body).prepend(el);
 const nav=document.querySelector('header nav');if(nav){const a=document.createElement('a');a.href='#espHw';a.textContent='ESP32 telemetry';nav.append(a)}
 $('hwopen').onclick=connect;$('hwclose').onclick=disconnect;$('hwfile').onchange=importLog;$('hwexport').onclick=exportCSV;$('hwclear').onclick=()=>{rows=[];keys.clear();render()};render();setInterval(age,3000)}
-function consume(line,origin){line=line.trim();if(!line.startsWith('{')||line.length>4096)return false;let r;try{r=JSON.parse(line)}catch{return false}if(!r||!Number.isSafeInteger(r.b)||!Number.isSafeInteger(r.n)||!Number.isSafeInteger(r.ms)||!Number.isInteger(r.ok)||r.n<1||r.ok<0||r.ok>7)return false;for(const k of ['t','v','i','p','ax','ay','az','gx','gy','gz','l'])if(r[k]!=null&&!Number.isFinite(r[k]))return false;let key=r.b+':'+r.n+':'+r.ms;if(keys.has(key))return false;keys.add(key);r.origin=origin;r.when=Date.now();rows.push(r);if(rows.length>2000){let drop=rows.shift();keys.delete(drop.b+':'+drop.n+':'+drop.ms)}if(origin==='USB')last=Date.now();render();return true}
+function consume(line,origin){line=line.trim();if(!line.startsWith('{')||line.length>4096)return false;let r;try{r=JSON.parse(line)}catch{return false}if(!r||!Number.isSafeInteger(r.b)||!Number.isSafeInteger(r.n)||!Number.isSafeInteger(r.ms)||!Number.isInteger(r.ok)||r.n<1||r.ok<0||r.ok>7)return false;for(const k of ['t','v','i','p','ax','ay','az','gx','gy','gz','l'])if(r[k]!=null&&!Number.isFinite(r[k]))return false;let key=r.b+':'+r.n+':'+r.ms;if(keys.has(key))return false;keys.add(key);r.origin=origin;r.when=Date.now();rows.push(r);if(rows.length>2000){let drop=rows.shift();keys.delete(drop.b+':'+drop.n+':'+drop.ms)}if(origin==='USB')last=Date.now();render();syncMissionControl(r);return true}
+/*
+ * Bridge the compact firmware packet into the original Mission Control's
+ * typed telemetry store. No virtual readings are invented.
+ * The original Mission Control's command channel stays disconnected;
+ * this sync is read-only and never enables hardware command buttons.
+ */
+function syncMissionControl(r){
+ if(!r||!window.UltronApp||!window.UltronCore?.normalize)return;
+ const app=window.UltronApp;
+ // The original controller owns its own live native USB/Wi-Fi connection.
+ if(typeof app.hasHardware==='function'&&app.hasHardware())return;
+ const valid=(key,bit)=>!!(r.ok&bit)&&Number.isFinite(r[key])?r[key]:null;
+ const validSimple=key=>Number.isFinite(r[key])?r[key]:null;
+ const live=r.origin==='USB';
+ const typed={
+  type:'telemetry',version:1,
+  mode:null,firmware:null,uptime_ms:validSimple('ms'),
+  environment:{temperature_C:valid('t',1),humidity_percent:null,sensor:null},
+  power:{bus_voltage:valid('v',2),current_mA:valid('i',2),
+         battery_voltage:null,solar_voltage:null,battery_percent:null,charging:null},
+  light:{light1:validSimple('l'),light2:null,unit:'raw ADC'},
+  accelerometer:{x:valid('ax',4)==null?null:r.ax*9.80665,
+                 y:valid('ay',4)==null?null:r.ay*9.80665,
+                 z:valid('az',4)==null?null:r.az*9.80665},
+  gyroscope:{x:valid('gx',4),y:valid('gy',4),z:valid('gz',4)},
+  imu:{state:(r.ok&4)?'REPORTED':'UNAVAILABLE'},
+  lora:{state:'UNAVAILABLE'},
+  camera:{state:'UNAVAILABLE'},
+  storage:{state:'UNAVAILABLE'},
+  wifi:{state:'UNAVAILABLE'}
+ };
+ try{
+  const normalized=window.UltronCore.normalize(typed,live?'USB':'REPLAY',r.when||Date.now());
+  // Treat as separate read-only USB panel or historical log. The native
+  // firmware-v1 connection and device command permissions remain unaffected.
+  app.telemetry=normalized;
+  if(app.settings?.logging&&Array.isArray(app.records)){
+   app.records.push(normalized);if(app.records.length>300)app.records.shift();
+  }
+  window.MC4?.render?.(1);
+  const note=document.getElementById('sensorAvailability');
+  if(note){
+   note.textContent=live
+    ?'Read-only USB telemetry synchronized from ESP32 Hardware Readings. Unreported fields remain NOT MEASURED. Native command link is not connected.'
+    :'Historical SD telemetry synchronized for review. These are NOT LIVE readings. Unreported fields remain NOT MEASURED.';
+  }
+ }catch(error){console.warn('ULTRON telemetry main-card sync skipped',error)}
+}
 function render(){if(!$('espHw'))return;const r=rows.at(-1),ok=r?.ok||0;const set=(k,v)=>$('hwr'+k).textContent=v;set('t',ok&1?val(r.t)+' °C':'—');set('v',ok&2?val(r.v)+' V':'—');set('i',ok&2?val(r.i,1)+' mA':'—');set('p',ok&2?val(r.p,1)+' mW':'—');set('l',r?val(r.l,0):'—');set('a',ok&4?[r.ax,r.ay,r.az].map(x=>val(x)).join(' / ')+' g':'—');set('g',ok&4?[r.gx,r.gy,r.gz].map(x=>val(x)).join(' / ')+' °/s':'—');set('n',r?r.n+' · '+r.ok+'/7':'—');$('hworigin').textContent=r?.origin||'None';$('hwcount').textContent=rows.length+' samples';$('hwexport').disabled=!rows.length;$('hwtable').innerHTML=rows.slice(-12).reverse().map(x=>'<tr><td>'+x.origin+'</td><td>'+x.b+'</td><td>'+x.n+'</td><td>'+val(x.t)+'</td><td>'+val(x.v)+'</td><td>'+val(x.i)+'</td><td>'+val(x.p)+'</td><td>'+val(x.l,0)+'</td><td>'+x.ok+'/7</td></tr>').join('');age()}
 function age(){if(!$('hwage'))return;const r=rows.at(-1);$('hwage').textContent=r?(r.origin==='SD log'?'Historical log':Math.round((Date.now()-r.when)/1000)+' s ago'):'Never';$('hwconn').textContent=!connected?'Not connected':!last?'USB open · awaiting data':Date.now()-last>90000?'USB open · data stale':'USB live readings'}
 function msg(t){if($('hwmessage'))$('hwmessage').textContent=t}
