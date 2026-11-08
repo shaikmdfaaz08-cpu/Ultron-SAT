@@ -41,10 +41,34 @@ function makePanel(place){
  hardware.className="usm-actual-area";
  hardware.setAttribute("aria-label","Physical CubeSat hardware measurements, separate from the orbit simulator");
  hardware.innerHTML='<div class="usm-zone-title"><span class="usm-zone-pill usm-real-pill">02 · ACTUAL HARDWARE</span><h4>Live component and sensor readings</h4><p>Measurements come only from ESP32 USB telemetry. An SD recording is marked historical; missing fields stay unmeasured.</p></div>'
- +'<div class="usm-physical-state"><strong data-real-source>NO DEVICE CONNECTED</strong><span data-real-age>No sample received</span><a href="#espHw">Connect USB / inspect incoming packets</a></div>'
+ +'<div class="usm-physical-state"><strong data-real-source>NO DEVICE CONNECTED</strong><span data-real-age>No sample received</span><button type="button" id="usmConnectUSB">Connect USB</button><a href="#espHw">USB diagnostics</a></div>'
  +'<div class="usm-live-power"><div><small>INA219 current · monitored bus</small><strong data-ina-current>— mA</strong></div><div><small>INA219 voltage · monitored bus</small><strong data-ina-voltage>— V</strong></div><div><small>INA219 power · monitored bus</small><strong data-ina-power>— mW</strong></div></div>'
  +'<div class="usm-actual-grid">'+PARTS.map(function(p){return '<article class="usm-actual-part" data-real-part="'+p[0]+'" data-state="unknown"><div class="usm-part-title"><span class="usm-part-icon">'+p[1]+'</span><div class="usm-part-name"><b>'+p[2]+'</b><small>PHYSICAL HARDWARE</small></div></div><strong class="usm-real-status">NO LIVE READING</strong><p class="usm-real-reading">Not measured</p></article>';}).join('')+'</div>';
  root.querySelector(".usm-bottom").insertAdjacentElement("beforebegin",hardware);
+ // Card selection is interactive and keyboard accessible, not static decoration.
+ for(const area of [simulation,hardware]){
+  const tiles=[...area.querySelectorAll(".usm-part,.usm-actual-part")];
+  for(let i=0;i<tiles.length;i++){
+   const tile=tiles[i];tile.setAttribute("role","button");tile.tabIndex=0;
+   tile.dataset.expanded=String(i===0);tile.setAttribute("aria-expanded",String(i===0));
+   function toggle(){
+    const next=tile.dataset.expanded!=="true";
+    for(const other of tiles){other.dataset.expanded="false";other.setAttribute("aria-expanded","false")}
+    tile.dataset.expanded=String(next);tile.setAttribute("aria-expanded",String(next));
+   }
+   tile.addEventListener("click",toggle);
+   tile.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle()}});
+  }
+ }
+ const connect=root.querySelector("#usmConnectUSB");
+ connect.addEventListener("click",()=>{
+  const button=$("hwopen"),status=root.querySelector("[data-real-source]");
+  if(!navigator.serial){if(status)status.textContent="USB needs desktop Chrome/Edge on HTTPS";return}
+  if(!button){if(status)status.textContent="USB connection panel unavailable";return}
+  if(button.disabled){if(status)status.textContent="USB already open — waiting for data";return}
+  button.click();
+  if(status)status.textContent="Select your ESP32 COM port in the USB chooser";
+ });
  return root;
 }
 function css(){
@@ -52,6 +76,27 @@ function css(){
  var style=document.createElement("style");style.id="usm-style";
  style.textContent=[
  '.usm-panel,.usm-panel *{box-sizing:border-box}',
+ ".usm-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:11px}",
+ ".usm-panel>.usm-head,.usm-panel>.usm-bottom,.usm-panel>.usm-packet,.usm-panel>.usm-note{grid-column:1/-1}",
+ ".usm-panel>.usm-sim-area,.usm-panel>.usm-actual-area{min-width:0;margin:0;padding:12px;border-radius:15px}",
+ ".usm-panel .usm-grid,.usm-panel .usm-actual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}",
+ ".usm-panel .usm-part,.usm-panel .usm-actual-part{padding:9px;min-height:69px;cursor:pointer;transition:transform .18s,border-color .18s,background .18s}",
+ ".usm-panel .usm-part:hover,.usm-panel .usm-actual-part:hover{transform:translateY(-2px);border-color:#80e9e1}",
+ ".usm-panel .usm-part:focus-visible,.usm-panel .usm-actual-part:focus-visible{outline:2px solid #91f5ed;outline-offset:2px}",
+ ".usm-panel .usm-part[data-expanded=true],.usm-panel .usm-actual-part[data-expanded=true]{grid-column:span 2;border-color:#75e2d7;background:linear-gradient(135deg,#134052,#0d3341)}",
+ ".usm-panel .usm-part .usm-detail,.usm-panel .usm-actual-part .usm-real-reading{display:none}",
+ ".usm-panel .usm-part[data-expanded=true] .usm-detail,.usm-panel .usm-actual-part[data-expanded=true] .usm-real-reading{display:block}",
+ ".usm-panel .usm-part-icon{font-size:19px;flex-basis:22px}",
+ ".usm-panel .usm-part-name b{font-size:11px}",
+ ".usm-panel .usm-mission{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}",
+ ".usm-panel .usm-flow{padding:6px 0}",
+ ".usm-panel .usm-flow span{padding:5px 7px;font-size:10px}",
+ ".usm-panel #usmConnectUSB{color:#093636;background:#67dfc9;border:1px solid #91f3e7;border-radius:8px;padding:8px 10px;cursor:pointer;font:700 11px system-ui}",
+ ".usm-panel #usmConnectUSB:hover{background:#99f4e3}",
+ ".usm-panel .usm-live-power strong{font-size:16px}",
+ "@media(max-width:1070px){.usm-panel{grid-template-columns:1fr}.usm-panel>.usm-head,.usm-panel>.usm-bottom,.usm-panel>.usm-packet,.usm-panel>.usm-note{grid-column:1}}",
+ "@media(max-width:480px){.usm-panel .usm-grid,.usm-panel .usm-actual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.usm-panel .usm-part[data-expanded=true],.usm-panel .usm-actual-part[data-expanded=true]{grid-column:span 2}}",
+ "@media(prefers-reduced-motion:reduce){.usm-panel .usm-part,.usm-panel .usm-actual-part{transition:none}}",
  '.usm-sim-area,.usm-actual-area{padding:15px;border-radius:15px;margin:13px 0;min-width:0;overflow:hidden}',
  '.usm-sim-area{background:linear-gradient(135deg,#22263b,#142336);border:1px solid #75679b}',
  '.usm-actual-area{background:linear-gradient(135deg,#082f34,#0d293b);border:1px solid #2eaa99}',
@@ -333,11 +378,16 @@ function mount(){
  var orbitAnchor=$("pm3OrbitStatusRow")||$("pm3Panel")||$("solarWorld");
  if(orbitAnchor&&!$("usm-orbit"))orbitAnchor.insertAdjacentElement("afterend",makePanel("orbit"));
  var cadAnchor=$("cadView");
- if(cadAnchor&&!$("usm-cad"))cadAnchor.insertAdjacentElement("afterend",makePanel("cad"));
+ if(cadAnchor&&!$("usmCadLink")){
+  const a=document.createElement("a");a.id="usmCadLink";a.href="#usm-orbit";
+  a.textContent="Explore interactive components and live sensor readings";
+  a.style.cssText="display:block;padding:10px 12px;margin:8px 0 15px;color:#8ae8ef;background:#11374b;border:1px solid #48758f;border-radius:10px;font:600 12px system-ui;text-decoration:none";
+  cadAnchor.insertAdjacentElement("afterend",a);
+ }
 }
 function refresh(){
  mount();
- ["usm-orbit","usm-cad"].forEach(function(id){var root=$(id);if(root)paint(root);});
+ const panel=$("usm-orbit");if(panel)paint(panel);
 }
 function start(){refresh();setInterval(function(){if(!document.hidden)refresh();},800);}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();
