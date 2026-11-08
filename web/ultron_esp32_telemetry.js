@@ -2,11 +2,55 @@
 let port,reader,stopping=false,buf='',rows=[],keys=new Set(),last=0,connected=false;
 const $=x=>document.getElementById(x), val=(n,d=2)=>Number.isFinite(n)?n.toFixed(d):'—';
 function init(){const style=document.createElement('style');style.textContent='#espHw{margin:20px 0;color:#edf8ff;scroll-margin-top:78px}#espHw .hwbox{border:1px solid #3b7899;border-radius:20px;background:linear-gradient(130deg,#0c263e,#091a30);padding:18px}#espHw .hwtools{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:12px 0}#espHw button,#espHw label{border:1px solid #4384aa;background:#164562;border-radius:10px;padding:9px 12px;color:#ecf8ff;cursor:pointer;font-size:13px}#espHw button:disabled{opacity:.4}#espHw label input{display:none}#espHw .hwgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin:15px 0}#espHw .hwm{background:#103550;border:1px solid #325f7c;border-radius:12px;padding:13px;min-width:0}#espHw .hwm small{display:block;color:#a9d4eb;margin-bottom:7px}#espHw .hwm b{font-size:20px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}#espHw .hwinfo{font-size:12px;color:#b1cfdd;line-height:1.65}#espHw table{border-collapse:collapse;font-size:12px;min-width:650px}#espHw td,#espHw th{border-bottom:1px solid #31516b;padding:7px}@media(max-width:700px){#espHw .hwgrid{grid-template-columns:repeat(2,minmax(0,1fr))}#espHw .hwm b{font-size:17px}}';document.head.append(style);
-const el=document.createElement('section');el.id='espHw';el.innerHTML='<div class="hwbox"><h2>ESP32 CubeSat · Live Hardware Readings</h2><div class="hwtools"><span id="hwconn">Not connected</span><button id="hwopen">Connect USB (115200)</button><button id="hwclose" disabled>Disconnect</button><label>Import SD .log<input id="hwfile" type="file" multiple accept=".log,.txt,.jsonl,.json"></label><button id="hwexport" disabled>Export CSV</button><button id="hwclear">Clear</button></div><p id="hwmessage" class="hwinfo" role="status">Connect the main ESP32 or ground LoRa receiver using Chrome/Edge Web Serial, or import an SD .log file. No device readings are sent to Render.</p><div class="hwgrid">'+[['t','TMP102 temperature'],['v','INA219 5V bus'],['i','INA219 current'],['p','INA219 power'],['l','LDR raw light ADC'],['a','MPU6050 acceleration X/Y/Z'],['g','MPU6050 gyro X/Y/Z'],['n','Sample and validity mask']].map(x=>'<div class="hwm"><small>'+x[1]+'</small><b id="hwr'+x[0]+'">—</b></div>').join('')+'</div><p class="hwinfo"><b>Origin:</b> <span id="hworigin">None</span> · <b>Age:</b> <span id="hwage">Never</span> · <span id="hwcount">0 samples</span>. Sensor fields are real only when received from the ESP32 or imported from SD. Solar/orbit/battery simulations elsewhere are not connected. Voltage/current/power describe the monitored 5 V rail, not the battery state of charge. The firmware has no absolute-time clock or network uplink. Camera images are saved to SD separately.</p><details><summary>Recent received samples</summary><div style="overflow:auto"><table><thead><tr><th>Source</th><th>Boot</th><th>Sample</th><th>Temp °C</th><th>Bus V</th><th>Current mA</th><th>Power mW</th><th>LDR</th><th>Valid</th></tr></thead><tbody id="hwtable"></tbody></table></div></details></div>';
+const el=document.createElement('section');el.id='espHw';el.innerHTML='<div class="hwbox"><h2>ESP32 CubeSat · Live Hardware Readings</h2><div class="hwtools"><span id="hwconn">Not connected</span><button id="hwopen">Connect USB (115200)</button><button id="hwclose" disabled>Disconnect</button><label>Import SD .log<input id="hwfile" type="file" multiple accept=".log,.txt,.jsonl,.json"></label><button id="hwexport" disabled>Export CSV</button><button id="hwclear">Clear</button></div><p id="hwmessage" class="hwinfo" role="status">Connect the main ESP32 or ground LoRa receiver using Chrome/Edge Web Serial, or import an SD .log file. No device readings are sent to Render.</p><div class="hwgrid">'+[['t','TMP102 temperature'],['v','INA219 5V bus'],['i','INA219 current'],['p','INA219 power'],['l','LDR raw light ADC'],['a','MPU6050 acceleration X/Y/Z'],['g','MPU6050 gyro X/Y/Z'],['n','Sample and validity mask']].map(x=>'<div class="hwm"><small>'+x[1]+'</small><b id="hwr'+x[0]+'">—</b></div>').join('')+'</div><p class="hwinfo"><b>Origin:</b> <span id="hworigin">None</span> · <b>Age:</b> <span id="hwage">Never</span> · <span id="hwcount">0 samples</span>. Sensor fields are real only when received from the ESP32 or imported from SD. Orbit simulation runs independently. If firmware reports solar, battery, LoRa, camera or SD data, their ACTUAL measurements appear beside the orbit model states. Voltage/current/power describe the monitored 5 V rail, not the battery state of charge. The firmware has no absolute-time clock or network uplink. Camera images are saved to SD separately.</p><details><summary>Recent received samples</summary><div style="overflow:auto"><table><thead><tr><th>Source</th><th>Boot</th><th>Sample</th><th>Temp °C</th><th>Bus V</th><th>Current mA</th><th>Power mW</th><th>LDR</th><th>Valid</th></tr></thead><tbody id="hwtable"></tbody></table></div></details></div>';
 const anchor=document.querySelector('main > .oobanner')||document.querySelector('main > section');if(anchor?.parentNode)anchor.after(el);else(document.querySelector('main')||document.body).prepend(el);
 const nav=document.querySelector('header nav');if(nav){const a=document.createElement('a');a.href='#espHw';a.textContent='ESP32 telemetry';nav.append(a)}
 $('hwopen').onclick=connect;$('hwclose').onclick=disconnect;$('hwfile').onchange=importLog;$('hwexport').onclick=exportCSV;$('hwclear').onclick=()=>{rows=[];keys.clear();render()};render();setInterval(age,3000)}
-function consume(line,origin){line=line.trim();if(!line.startsWith('{')||line.length>4096)return false;let r;try{r=JSON.parse(line)}catch{return false}if(!r||!Number.isSafeInteger(r.b)||!Number.isSafeInteger(r.n)||!Number.isSafeInteger(r.ms)||!Number.isInteger(r.ok)||r.n<1||r.ok<0||r.ok>7)return false;for(const k of ['t','v','i','p','ax','ay','az','gx','gy','gz','l'])if(r[k]!=null&&!Number.isFinite(r[k]))return false;let key=r.b+':'+r.n+':'+r.ms;if(keys.has(key))return false;keys.add(key);r.origin=origin;r.when=Date.now();rows.push(r);if(rows.length>2000){let drop=rows.shift();keys.delete(drop.b+':'+drop.n+':'+drop.ms)}if(origin==='USB')last=Date.now();render();syncMissionControl(r);return true}
+
+let extendedSequence=0;
+function deep(o,ks){
+ let v=o;
+ for(const k of ks)v=v&&typeof v==="object"?v[k]:undefined;
+ return typeof v==="number"&&Number.isFinite(v)?v:null;
+}
+function consume(line,origin){
+ line=line.trim();if(!line.startsWith("{")||line.length>8192)return false;
+ let r;try{r=JSON.parse(line)}catch{return false}
+ if(!r||Array.isArray(r)||typeof r!=="object")return false;
+ const oldValid=Number.isSafeInteger(r.b)&&Number.isSafeInteger(r.n)&&Number.isSafeInteger(r.ms)&&Number.isInteger(r.ok)&&r.n>=1&&r.ok>=0&&r.ok<=7;
+ const extended=r.type==="telemetry"&&["solar","battery","eps","lora","sd","camera","power","environment","light","imu"].some(k=>r[k]&&typeof r[k]==="object"&&!Array.isArray(r[k]));
+ if(!oldValid&&!extended)return false;
+ for(const k of ["t","v","i","p","ax","ay","az","gx","gy","gz","l","sv","si","sp","bv","bi","bpct"]){
+  if(r[k]!=null&&(typeof r[k]!=="number"||!Number.isFinite(r[k])))return false;
+ }
+ for(const k of ["solar","battery","eps","lora","sd","camera","power","environment","light","imu","sht31","storage"]){
+  const obj=r[k];if(obj==null)continue;
+  if(typeof obj!=="object"||Array.isArray(obj))return false;
+  for(const val of Object.values(obj))if(val!=null&&(typeof val!=="number"&&typeof val!=="boolean"&&typeof val!=="string"||typeof val==="number"&&!Number.isFinite(val)||typeof val==="string"&&val.length>120))return false;
+ }
+ if(!oldValid){
+  r.b=Number.isSafeInteger(r.b)?r.b:0;
+  r.n=Number.isSafeInteger(r.n)&&r.n>0?r.n:++extendedSequence;
+  r.ms=Number.isSafeInteger(r.ms)?r.ms:0;
+  if(r.t==null)r.t=deep(r,["environment","temperature_C"]);
+  if(r.v==null)r.v=deep(r,["power","bus_voltage"]);
+  if(r.i==null)r.i=deep(r,["power","current_mA"]);
+  if(r.p==null)r.p=deep(r,["power","power_mW"]);
+  if(r.l==null)r.l=deep(r,["light","light1"]);
+  r.ok=(r.t!=null?1:0)|((r.v!=null||r.i!=null||r.p!=null)?2:0)|((r.ax!=null&&r.ay!=null&&r.az!=null)?4:0);
+ }
+ const key=oldValid?r.b+":"+r.n+":"+r.ms:origin+":ext:"+r.n+":"+line.slice(0,100);
+ if(keys.has(key))return false;
+ keys.add(key);r.__key=key;r.origin=origin;r.when=Date.now();
+ rows.push(r);
+ if(rows.length>2000){const drop=rows.shift();keys.delete(drop.__key||drop.b+":"+drop.n+":"+drop.ms)}
+ if(origin==="USB")last=Date.now();
+ const snap={packet:r,origin:origin,when:r.when};
+ window.ULTRON_HW_LATEST=snap;
+ render();syncMissionControl(r);
+ document.dispatchEvent(new CustomEvent("ultron:hardware-sample",{detail:snap}));
+ return true;
+}
 /*
  * Bridge the compact firmware packet into the original Mission Control's
  * typed telemetry store. No virtual readings are invented.
