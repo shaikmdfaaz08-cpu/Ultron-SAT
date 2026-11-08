@@ -33,6 +33,7 @@ scripts = [
     "ultron_ai_button_fix.js",
     "ultron_ai_remote_bridge.js",
     "ultron_orbit_eps.js",
+    "ultron_subsystem_activity.js",
     "static_cloud_notice.js",
 ]
 missing = [name for name in scripts if f'{name}' not in html]
