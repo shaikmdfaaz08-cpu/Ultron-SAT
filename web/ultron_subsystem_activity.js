@@ -13,7 +13,7 @@ var PARTS=[
  ["battery","▰","Battery reserve","3D SIMULATION"],
  ["obc","▦","Onboard computer","OPERATING MODE · SIMULATED"],
  ["camera","◉","ESP32-CAM","PAYLOAD MODE · SIMULATED"],
- ["temp","♨","Temperature / SHT31","ESP32 SENSOR"],
+ ["temp","♨","Temperature / TMP102","ESP32 SENSOR"],
  ["ina","⌁","INA219 bus monitor","ESP32 SENSOR"],
  ["imu","⌖","MPU6050 IMU","ESP32 SENSOR"],
  ["ldr","☼","LDR light sensor","ESP32 SENSOR"],
