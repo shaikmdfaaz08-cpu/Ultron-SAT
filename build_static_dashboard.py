@@ -24,6 +24,8 @@ if "</body>" not in html.lower():
 # Load each optional dashboard enhancement exactly once, in dependency order.
 # This also avoids duplicate listeners and overlapping panels in older releases.
 scripts = [
+    "ultron_telemetry_protocol.js",
+    "ultron_shared_usb_bridge.js",
     "ultron_runtime_patch.js",
     "ultron_esp32_telemetry.js",
     "ultron_browser_oil_ai.js",
