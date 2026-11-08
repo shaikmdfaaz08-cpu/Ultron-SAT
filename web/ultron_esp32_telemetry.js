@@ -46,6 +46,7 @@ function consume(line,origin){
  if(rows.length>2000){const drop=rows.shift();keys.delete(drop.__key||drop.b+":"+drop.n+":"+drop.ms)}
  if(origin==="USB")last=Date.now();
  const snap={packet:r,origin:origin,when:r.when};
+ window.ULTRON_HW_PREVIOUS=window.ULTRON_HW_LATEST||null;
  window.ULTRON_HW_LATEST=snap;
  render();syncMissionControl(r);
  document.dispatchEvent(new CustomEvent("ultron:hardware-sample",{detail:snap}));

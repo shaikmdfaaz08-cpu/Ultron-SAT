@@ -13,7 +13,7 @@ var PARTS=[
  ["battery","▰","Battery reserve","3D SIMULATION"],
  ["obc","▦","Onboard computer","OPERATING MODE · SIMULATED"],
  ["camera","◉","ESP32-CAM","PAYLOAD MODE · SIMULATED"],
- ["temp","♨","TMP102 temperature","ESP32 SENSOR"],
+ ["temp","♨","Temperature / SHT31","ESP32 SENSOR"],
  ["ina","⌁","INA219 bus monitor","ESP32 SENSOR"],
  ["imu","⌖","MPU6050 IMU","ESP32 SENSOR"],
  ["ldr","☼","LDR light sensor","ESP32 SENSOR"],
@@ -131,6 +131,16 @@ function measured(p,id){
   add(getn("solar.voltage_v","solar.voltage_V","sv")," V solar");
   add(getn("solar.current_ma","solar.current_mA","si")," mA solar",1);
   add(getn("solar.power_mw","solar.power_mW","sp")," mW solar",1);
+  const prev=window.ULTRON_HW_PREVIOUS;
+  const latest=window.ULTRON_HW_LATEST;
+  if(prev?.origin==="USB"&&latest?.origin==="USB"&&prev.when!==latest.when){
+   const oldP=get(prev.packet,[["solar","power_mw"],["solar","power_mW"],["sp"]]);
+   const newP=getn("solar.power_mw","solar.power_mW","sp");
+   const oldV=get(prev.packet,[["solar","voltage_v"],["solar","voltage_V"],["sv"]]);
+   const newV=getn("solar.voltage_v","solar.voltage_V","sv");
+   if(oldP!=null&&newP!=null)pieces.push("Δ power "+(newP-oldP>=0?"+":"")+fmt(newP-oldP,1)+" mW");
+   else if(oldV!=null&&newV!=null)pieces.push("Δ panel V "+(newV-oldV>=0?"+":"")+fmt(newV-oldV,2)+" V");
+  }
   if(!pieces.length){
    const l=getn("l","light.light1","light.adc");
    return l!=null?"No panel voltage/current sensor; LDR light "+fmt(l,0)+" ADC (not panel power)":"No dedicated solar-panel electrical reading sent";
@@ -142,9 +152,12 @@ function measured(p,id){
   const ch=getn("battery.charging","eps.charging","power.charging");
   if(ch!=null)pieces.push(ch?"Charging reported":"Not charging reported");
  }else if(id==="eps"){
+  const railValid=p.ok==null||!!(p.ok&2);
+  if(railValid){
   add(getn("v","power.bus_voltage")," V monitored bus");
   add(getn("i","power.current_mA")," mA monitored bus",1);
   add(getn("p","power.power_mW")," mW monitored bus",1);
+  }
   const ch=getn("eps.charging");
   if(ch!=null)pieces.push(ch?"EPS charging reported":"EPS not charging reported");
   const ready=getn("eps.ready","eps.active");
@@ -167,15 +180,23 @@ function measured(p,id){
   add(getn("sd.free_mb","storage.free_mb")," MB free",1);
   const w=getn("sd.writes","storage.writes");if(w!=null)pieces.push(w+" writes");
  }else if(id==="ina"){
-  add(getn("v","power.bus_voltage")," V bus");
-  add(getn("i","power.current_mA")," mA bus",1);
-  add(getn("p","power.power_mW")," mW bus",1);
+  if(p.ok==null||!!(p.ok&2)){
+   add(getn("v","power.bus_voltage")," V bus");
+   add(getn("i","power.current_mA")," mA bus",1);
+   add(getn("p","power.power_mW")," mW bus",1);
+  }
  }else if(id==="temp"){
   const ok=p.ok==null||!!(p.ok&1);
   if(ok)add(getn("t","environment.temperature_C","sht31.temperature_c")," °C");
   add(getn("environment.humidity_percent","sht31.humidity_percent"),"% RH",1);
  }else if(id==="ldr"){
-  add(getn("l","light.light1","light.adc")," light ADC",0);
+  const light=getn("l","light.light1","light.adc");
+  add(light," light ADC",0);
+  const prev=window.ULTRON_HW_PREVIOUS,latest=window.ULTRON_HW_LATEST;
+  if(light!=null&&prev?.origin==="USB"&&latest?.origin==="USB"&&prev.when!==latest.when){
+   const old=get(prev.packet,[["l"],["light","light1"],["light","adc"]]);
+   if(old!=null)pieces.push("Δ "+(light-old>=0?"+":"")+fmt(light-old,0)+" ADC");
+  }
  }else if(id==="imu"){
   const ok=p.ok==null||!!(p.ok&4);
   if(ok){
