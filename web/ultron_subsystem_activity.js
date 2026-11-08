@@ -25,12 +25,26 @@ function makePanel(place){
  root.className="usm-panel";
  root.id="usm-"+place;
  root.setAttribute("aria-label","ULTRON-SAT component status synchronized with orbit and ESP32 readings");
- root.innerHTML='<div class="usm-head"><div><div class="usm-eyebrow">CUBESAT COMPONENT ACTIVITY · ORBIT MODEL + ACTUAL READINGS</div><h3>Which systems are operating?</h3><p>90-minute scheduled ON/OFF states follow the 3D orbit. Actual readings are shown alongside each component, independently.</p></div><span class="usm-sim-tag">MODEL + HARDWARE · LABELLED</span></div>'
+ root.innerHTML='<div class="usm-head"><div><div class="usm-eyebrow">ULTRON-SAT · COMPONENT CONSOLE</div><h3>Simulated orbit and real hardware</h3><p>Two separate areas: orbital operating states are modeled; sensor readings are received from the physical ESP32.</p></div><span class="usm-sim-tag">SIMULATION ≠ REAL DATA</span></div>'
+ +'<section class="usm-sim-area" aria-label="Simulation only: orbit model and planned component operation"><div class="usm-zone-title"><span class="usm-zone-pill usm-model-pill">01 · SIMULATED</span><h4>Orbit schedule and component operating modes</h4><p>These ON/OFF indicators come from the rotating 3D model, not electronic measurements.</p></div></section>'
  +'<div class="usm-mission"><div><small>Orbit condition</small><strong data-summary="orbit">Waiting for rotation…</strong></div><div><small>Estimated solar generation</small><strong data-summary="power">—</strong></div><div><small>Simulated battery</small><strong data-summary="battery">—</strong></div><div><small>ESP32 data source</small><strong data-summary="source">Not connected</strong></div></div>'
  +'<div class="usm-flow"><span data-flow="solar">Solar</span><i>→</i><span data-flow="eps">EPS</span><i>⇄</i><span data-flow="battery">Battery</span><i>→</i><span data-flow="payload">Payload</span></div>'
  +'<div class="usm-grid">'+PARTS.map(function(p){return '<article class="usm-part" data-part="'+p[0]+'" data-state="unknown"><div class="usm-part-title"><span class="usm-part-icon" aria-hidden="true">'+p[1]+'</span><div class="usm-part-name"><b>'+p[2]+'</b><small>'+p[3]+'</small></div></div><div class="usm-part-state"><span class="usm-led" aria-hidden="true"></span><strong class="usm-status">UNKNOWN</strong></div><p class="usm-detail">Awaiting data</p></article>';}).join('')+'</div>'
  +'<div class="usm-bottom"><span data-summary="freshness">No sensor sample received</span><a href="#espHw">View USB connection, all sensor readings and SD logs</a></div>'
  +'<p class="usm-note">MODEL ON/OFF follows the 90-minute duty-cycle demonstration and does not control real components. ACTUAL data comes only from ESP32 USB/SD packets. Solar watts require a solar-panel electrical reading; LDR light is not solar watts. INA219 measures its monitored rail, not automatically battery SOC. SD imports are historical, and missing battery, LoRa, camera or storage fields stay unverified. Read-only; no hardware commands.</p>';
+ // Create two physically separate, bordered regions. Reuse the existing cards
+ // for simulated duty-cycle states and create independent measured sensor cards.
+ const simulation=root.querySelector(".usm-sim-area");
+ const mission=root.querySelector(".usm-mission"),flow=root.querySelector(".usm-flow"),grid=root.querySelector(".usm-grid");
+ simulation.append(mission,flow,grid);
+ const hardware=document.createElement("section");
+ hardware.className="usm-actual-area";
+ hardware.setAttribute("aria-label","Physical CubeSat hardware measurements, separate from the orbit simulator");
+ hardware.innerHTML='<div class="usm-zone-title"><span class="usm-zone-pill usm-real-pill">02 · ACTUAL HARDWARE</span><h4>Live component and sensor readings</h4><p>Measurements come only from ESP32 USB telemetry. An SD recording is marked historical; missing fields stay unmeasured.</p></div>'
+ +'<div class="usm-physical-state"><strong data-real-source>NO DEVICE CONNECTED</strong><span data-real-age>No sample received</span><a href="#espHw">Connect USB / inspect incoming packets</a></div>'
+ +'<div class="usm-live-power"><div><small>INA219 current · monitored bus</small><strong data-ina-current>— mA</strong></div><div><small>INA219 voltage · monitored bus</small><strong data-ina-voltage>— V</strong></div><div><small>INA219 power · monitored bus</small><strong data-ina-power>— mW</strong></div></div>'
+ +'<div class="usm-actual-grid">'+PARTS.map(function(p){return '<article class="usm-actual-part" data-real-part="'+p[0]+'" data-state="unknown"><div class="usm-part-title"><span class="usm-part-icon">'+p[1]+'</span><div class="usm-part-name"><b>'+p[2]+'</b><small>PHYSICAL HARDWARE</small></div></div><strong class="usm-real-status">NO LIVE READING</strong><p class="usm-real-reading">Not measured</p></article>';}).join('')+'</div>';
+ root.querySelector(".usm-bottom").insertAdjacentElement("beforebegin",hardware);
  return root;
 }
 function css(){
@@ -38,6 +52,33 @@ function css(){
  var style=document.createElement("style");style.id="usm-style";
  style.textContent=[
  '.usm-panel,.usm-panel *{box-sizing:border-box}',
+ '.usm-sim-area,.usm-actual-area{padding:15px;border-radius:15px;margin:13px 0;min-width:0;overflow:hidden}',
+ '.usm-sim-area{background:linear-gradient(135deg,#22263b,#142336);border:1px solid #75679b}',
+ '.usm-actual-area{background:linear-gradient(135deg,#082f34,#0d293b);border:1px solid #2eaa99}',
+ '.usm-zone-title h4{font-size:17px;line-height:1.3;margin:7px 0 3px;color:#f1faff}',
+ '.usm-zone-title p{margin:0 0 12px!important;font-size:11px!important;color:#b7cbd9!important;line-height:1.5}',
+ '.usm-zone-pill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.09em;padding:6px 9px;border-radius:8px;border:1px solid}',
+ '.usm-model-pill{color:#e0ccff;background:#3b2a56;border-color:#8e79ba}',
+ '.usm-real-pill{color:#a1ffde;background:#124c47;border-color:#3fbd9c}',
+ '.usm-actual-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}',
+ '.usm-actual-part{min-width:0;border:1px solid #337b78;border-radius:12px;background:#0a343d;padding:12px;overflow-wrap:anywhere}',
+ '.usm-actual-part[data-state="live"]{border-color:#4cdfbd;background:#0b3c3b}',
+ '.usm-actual-part[data-state="historical"]{border-color:#cfaa72}',
+ '.usm-real-status{display:block;font-size:10px;letter-spacing:.035em;color:#a7c2ce;margin:11px 0 4px}',
+ '.usm-actual-part[data-state="live"] .usm-real-status{color:#78f4c9}',
+ '.usm-actual-part[data-state="historical"] .usm-real-status{color:#ffdb9a}',
+ '.usm-real-reading{margin:0!important;color:#d4f1ed!important;font-size:11px!important;line-height:1.5}',
+ '.usm-physical-state{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:10px;background:#06252d;border-radius:10px;border:1px solid #356b6a;font-size:11px;margin:9px 0}',
+ '.usm-physical-state strong{font-size:11px;color:#a3ffe4}',
+ '.usm-physical-state span{color:#b6d1da}',
+ '.usm-physical-state a{color:#78e8f2;text-decoration:underline;text-underline-offset:2px}',
+ '.usm-live-power{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}',
+ '.usm-live-power>div{border:1px solid #399d95;border-radius:10px;background:#0a3d43;padding:11px;min-width:0}',
+ '.usm-live-power small{display:block;color:#a6dbd9;font-size:10px;line-height:1.4;margin-bottom:6px}',
+ '.usm-live-power strong{display:block;font-size:19px;color:#e9fff9;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}',
+ '@media(max-width:1050px){.usm-actual-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}',
+ '@media(max-width:760px){.usm-sim-area,.usm-actual-area{padding:10px}.usm-actual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.usm-live-power>div{padding:8px}.usm-live-power strong{font-size:15px}}',
+ '@media(max-width:440px){.usm-actual-grid{gap:6px}.usm-actual-part{padding:9px}.usm-live-power{gap:6px}.usm-live-power small{font-size:9px}.usm-live-power strong{font-size:13px}}',
  '.usm-timeline{display:flex;gap:4px;flex-wrap:wrap;margin:10px 0 14px}.usm-timeline span{padding:7px 8px;font-size:10px;border-radius:7px;background:#15334a;border:1px solid #325875;color:#b2cbdc}.usm-timeline span[data-active="true"]{background:#12645e;color:#fff;border-color:#62dbc8}.usm-packet{font-size:11px;color:#add9e7;margin:12px 0}.usm-packet summary{cursor:pointer}.usm-packet pre{max-height:210px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;background:#071827;border-radius:8px;border:1px solid #2c5068}',
  '.usm-panel{font-family:system-ui,-apple-system,sans-serif;color:#ecf9ff;min-width:0;margin:15px 0 21px;padding:18px;background:linear-gradient(145deg,#0b2338 10%,#071829 90%);border:1px solid #416c85;border-radius:18px;box-shadow:0 12px 27px #0003}',
  '.usm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}',
@@ -227,6 +268,21 @@ function paint(root){
  setSummary(root,"battery",text("pm3Charge")?text("pm3Charge")+" · SIM":"—");
  setSummary(root,"source",physicalSource);
  setSummary(root,"freshness",packet?physicalSource+" · "+age+" s since last sample":"No actual telemetry sample received");
+ const actualSource=root.querySelector("[data-real-source]"),actualAge=root.querySelector("[data-real-age]");
+ if(actualSource)actualSource.textContent=physicalSource;
+ if(actualAge)actualAge.textContent=packet?(age+" seconds since last sensor packet"):"No physical data received";
+ const getn=paths=>packet?get(packet,paths.map(s=>s.split("."))):null;
+ const validINA=packet&&(packet.ok==null||!!(packet.ok&2));
+ const current=validINA?getn(["i","power.current_mA","power.current_ma","ina219.current_ma"]):null;
+ const voltage=validINA?getn(["v","power.bus_voltage","power.bus_voltage_v","ina219.voltage_v"]):null;
+ const measuredP=validINA?getn(["p","power.power_mW","power.power_mw","ina219.power_mw"]):null;
+ const powerMW=measuredP!=null?measuredP:current!=null&&voltage!=null?current*voltage:null;
+ const setV=(sel,value)=>{const el=root.querySelector(sel);if(el)el.textContent=value;};
+ // Hardware values are only shown as "LIVE" when the serial stream is fresh;
+ // otherwise clear them instead of presenting simulated or stale numbers.
+ setV("[data-ina-current]",live&&current!=null?fmt(current,1)+" mA":"— mA");
+ setV("[data-ina-voltage]",live&&voltage!=null?fmt(voltage,2)+" V":"— V");
+ setV("[data-ina-power]",live&&powerMW!=null?fmt(powerMW,1)+" mW"+(measuredP==null?" (calc)":""):"— mW");
  let timeline=root.querySelector(".usm-timeline");
  if(!timeline){
   timeline=document.createElement("div");timeline.className="usm-timeline";
@@ -246,8 +302,17 @@ function paint(root){
   if(!el)continue;
   el.dataset.state=planned==null?"unknown":planned?"on":"off";
   el.querySelector(".usm-status").textContent=status;
-  el.querySelector(".usm-detail").textContent="ACTUAL · "+real;
+  el.querySelector(".usm-detail").textContent="SIMULATED DUTY CYCLE · "+(activeMin[id]||0)+" active minutes per 90-minute scenario";
   el.querySelector(".usm-part-name small").textContent="Schedule "+(activeMin[id]||0)+"/90 min · model";
+  // This is a completely separate physical hardware card, NOT the model card.
+  const actual=root.querySelector('[data-real-part="'+id+'"]');
+  if(actual){
+   const missing=!packet||/^No (dedicated|panel|sensor)|^No .*received/.test(real);
+   const realState=missing?"unknown":live?"live":log?"historical":"stale";
+   actual.dataset.state=realState;
+   actual.querySelector(".usm-real-status").textContent=missing?"NOT REPORTED":live?"LIVE USB · "+age+"s":log?"HISTORICAL SD LOG":"OLD READING · NOT LIVE";
+   actual.querySelector(".usm-real-reading").textContent=packet?real:"No measurement received from the ESP32";
+  }
  }
  let packetBox=root.querySelector(".usm-packet");
  if(!packetBox){

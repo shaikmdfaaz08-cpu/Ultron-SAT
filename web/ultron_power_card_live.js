@@ -55,6 +55,33 @@ function mount(){
  const page=$("page-power");if(!page)return null;
  const values=fields.map(field=>page.querySelector('[data-value="'+field+'"]'));
  if(values.some(v=>!v))return null;
+ if(!$("ultronHardwarePowerDedicated")){
+  const dedicated=document.createElement("section");
+  dedicated.id="ultronHardwarePowerDedicated";
+  dedicated.setAttribute("aria-label","Standalone live hardware power measurements from INA219");
+  dedicated.innerHTML='<div class="uhp-heading"><div><span class="uhp-kicker">02 · PHYSICAL HARDWARE · NOT A SIMULATION</span><h2>Live INA219 Power Management</h2><p>Actual ESP32 sensor values. The orbit simulation and battery model are separate.</p></div><strong id="uhpState">NOT CONNECTED</strong></div>'
+   +'<div class="uhp-measures"><div><small>Current · monitored bus</small><strong id="uhpCurrent">— mA</strong></div><div><small>Voltage · monitored bus</small><strong id="uhpVoltage">— V</strong></div><div><small>Power · monitored bus</small><strong id="uhpPower">— mW</strong></div></div>'
+   +'<p id="uhpHelp">Connect the ESP32 to receive real INA219 readings.</p><a href="#espHw">Connect USB / view physical sensor data</a>';
+  const target=page.querySelector(".mc-grid");
+  if(target)target.insertAdjacentElement("beforebegin",dedicated);
+  else page.prepend(dedicated);
+  const css=document.createElement("style");css.id="uhpStyle";
+  css.textContent='#ultronHardwarePowerDedicated,#ultronHardwarePowerDedicated *{box-sizing:border-box}'
+  +'#ultronHardwarePowerDedicated{background:linear-gradient(125deg,#0a353a,#0d2436);border:1px solid #3dbda3;border-radius:15px;margin:14px 0 18px;padding:17px;color:#e7fcf4;font:13px/1.5 system-ui}'
+  +'#ultronHardwarePowerDedicated .uhp-heading{display:flex;justify-content:space-between;flex-wrap:wrap;align-items:flex-start;gap:8px}'
+  +'#ultronHardwarePowerDedicated .uhp-heading h2{font-size:20px;color:#f4fffd;margin:5px 0 4px}'
+  +'#ultronHardwarePowerDedicated .uhp-heading p{font-size:11px;color:#aad4d5;margin:0}'
+  +'#ultronHardwarePowerDedicated .uhp-kicker{font-weight:800;color:#87f0d8;letter-spacing:.07em;font-size:10px}'
+  +'#uhpState{color:#d6edeb;border:1px solid #568c8a;border-radius:8px;padding:7px 10px;font-size:11px}'
+  +'#ultronHardwarePowerDedicated .uhp-measures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}'
+  +'#ultronHardwarePowerDedicated .uhp-measures>div{min-width:0;background:#0f3c43;border:1px solid #327b77;border-radius:11px;padding:13px}'
+  +'#ultronHardwarePowerDedicated .uhp-measures small{display:block;font-size:11px;color:#a8d3d4;margin-bottom:8px}'
+  +'#ultronHardwarePowerDedicated .uhp-measures strong{font-size:23px;display:block;color:#f1fff9;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}'
+  +'#ultronHardwarePowerDedicated #uhpHelp{font-size:11px;color:#bfd9da}'
+  +'#ultronHardwarePowerDedicated a{color:#75e5f1;text-decoration:underline;text-underline-offset:3px;font-size:12px}'
+  +'@media(max-width:540px){#ultronHardwarePowerDedicated{padding:12px}.uhp-measures{gap:6px!important}.uhp-measures>div{padding:9px!important}.uhp-measures small{font-size:9px!important}.uhp-measures strong{font-size:16px!important}}';
+  document.head.append(css);
+ }
  let card=values[0].closest(".mc-card");
  if(!card)return null;
  if(!$("ultronActualPowerSource")){
@@ -118,6 +145,14 @@ function paint(){
    if(items[i].textContent!==display[i])items[i].textContent=display[i];
    items[i].dataset.ultronPhysical=source.received?"true":"false";
   }
+  const set=(id,value)=>{const el=$(id);if(el&&el.textContent!==value)el.textContent=value;};
+  const physicalLive=!!source.received&&count>0;
+  set("uhpState",physicalLive?"LIVE SENSOR · "+Math.round(source.age/1000)+"s":source.received?"CONNECTED · NO INA219":source.origin);
+  set("uhpCurrent",physicalLive&&current!==null?current.toFixed(1)+" mA":"— mA");
+  set("uhpVoltage",physicalLive&&voltage!==null?voltage.toFixed(2)+" V":"— V");
+  const powerMW=physicalLive?(source.power!==null?source.power:voltage!==null&&current!==null?voltage*current:null):null;
+  set("uhpPower",powerMW!==null?powerMW.toFixed(1)+" mW":"— mW");
+  set("uhpHelp",physicalLive?"Hardware source "+source.origin+" · age "+Math.round(source.age/1000)+"s. Monitored INA219 bus, not simulated solar or battery power.":help);
   const st=$("ultronActualPowerState");if(st&&st.textContent!==status)st.textContent=status;
   const note=$("ultronActualPowerHelp");if(note&&note.textContent!==help)note.textContent=help;
  }finally{guard=false}
