@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ULTRON-SAT | Online RGB camera experiment</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark;background:#071422;color:#e8f3ff}
+*{box-sizing:border-box}body{margin:0}header{padding:20px max(18px,calc((100% - 1180px)/2));background:#0b263b;border-bottom:1px solid #31516a;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+a{color:#8ad9ff}h1{font-size:clamp(22px,3.3vw,36px);margin:0}h2{font-size:18px;margin:0 0 12px}h3{font-size:16px;margin:0 0 6px}
+main{max-width:1180px;padding:22px 18px 55px;margin:auto}.muted{color:#afc8dc;line-height:1.55;font-size:14px} .pill{font-size:12px;border:1px solid #64839c;border-radius:99px;padding:5px 10px;color:#c4dfea}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:16px;margin-top:18px}
+.panel{background:linear-gradient(140deg,#0d2c42,#0a1e31);border:1px solid #2b536d;border-radius:15px;padding:18px;min-width:0}
+canvas,video{display:block;width:100%;aspect-ratio:4 / 3;background:#030e19;border-radius:10px;object-fit:contain}
+#video{display:none}label{display:block;font-size:13px;margin:12px 0 5px;color:#c6e6fa}
+input{width:100%;background:#082139;border:1px solid #456c84;color:white;border-radius:8px;padding:10px;font:inherit;min-width:0}
+button{font:inherit;color:white;background:#186183;border:1px solid #4fa4c7;border-radius:9px;padding:10px 13px;cursor:pointer;font-size:13px}
+button:hover{background:#24759b}button:disabled{opacity:.55;cursor:not-allowed}.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+#labelOutput{font-size:23px;font-weight:700;line-height:1.3;margin:14px 0}
+#scoreOutput{font-variant-numeric:tabular-nums;color:#c1e4ff;font-size:14px}
+#progress{height:9px;overflow:hidden;border-radius:9px;background:#09243d;margin:12px 0}
+#fill{width:0;height:100%;background:#39badd;transition:width .2s}
+#status{padding:12px;background:#0a2237;border:1px solid #2a536d;border-radius:8px;line-height:1.5;min-height:65px}
+.note{border-left:3px solid #70b2cc;padding:9px 12px;margin-top:14px;background:#102d40;color:#d5e8f6;font-size:13px;line-height:1.55}
+strong{color:#fff}@media(max-width:840px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<header><div><span class="pill">ULTRON-SAT · PUBLIC WEBSITE</span><h1>Live RGB water-tray experiment</h1></div><a href="./">Return to mission control</a></header>
+<main>
+<p class="muted">Experimental optical camera analysis for the water-tray demonstration. This is a <strong>separate, small appearance classifier</strong> trained from 20 related frames. It is <strong>not</strong> the satellite SAR oil-spill model, does not verify substance identity, and has no independent-scene accuracy result. All processing below runs directly in your browser; no local Python server is needed.</p>
+<div class="grid">
+<section class="panel">
+<h2>Camera / image source</h2>
+<video id="video" autoplay muted playsinline aria-hidden="true"></video>
+<canvas id="preview" width="512" height="384" aria-label="Camera frame being classified"></canvas>
+<div class="buttons"><button id="webcam">Use this device's camera</button><button id="stop">Stop live analysis</button><button id="save">Save current frame</button></div>
+<label for="upload">Or analyze a JPG/PNG from any visitor</label>
+<input id="upload" type="file" accept="image/jpeg,image/png,image/webp">
+<h3 style="margin-top:21px">Live remote ESP32-CAM (optional HTTPS feed)</h3>
+<p class="muted">To show <em>the CubeSat's camera</em> to anyone remotely, supply a reachable, authorized <strong>HTTPS /capture</strong> endpoint with browser CORS access. GitHub Pages cannot connect directly to a private ESP32 HTTP IP or relay its video. Do not expose the raw camera ports to the public internet.</p>
+<label for="remoteUrl">Secure camera snapshot URL</label>
+<input id="remoteUrl" type="url" inputmode="url" placeholder="https://your-camera-gateway.example/capture" autocomplete="off">
+<div class="buttons"><button id="remote">Analyze secure remote camera every second</button></div>
+</section>
+<aside class="panel">
+<h2>RGB inference results</h2>
+<div id="labelOutput">No image analyzed yet</div>
+<div id="scoreOutput">Appearance score: —</div><div id="progress"><div id="fill"></div></div>
+<div id="status" role="status">Loading the experimental model from GitHub Pages…</div>
+<p class="muted" id="metadata">Frames analyzed: 0</p>
+<div class="note">A dark-looking patch is only a <strong>visual proxy</strong> in this experiment. Brown liquid, shadows, reflections, the container and lighting can cause false detections. An AI score is not proof of an oil spill or a calibrated probability. The 20 examples came from the same tray session.</div>
+<div class="note">If you select <strong>Use this device's camera</strong>, each viewer sees their own camera, not the CubeSat feed. A shared remote feed needs its own secure live camera gateway. The existing SAR dashboard is unchanged.</div>
+</aside></div>
+</main>
+<script src="water_tray_rgb_core.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(x){return document.getElementById(x);};
+var model=null,mode=null,timer=null,stream=null,busy=false,count=0,last=null,video=$('video'),canvas=$('preview'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+var small=document.createElement('canvas');small.width=96;small.height=96;
+var sc=small.getContext('2d',{willReadFrequently:true});
+function status(text){$('status').textContent=text;}
+function stop(){
+  mode=null;if(timer){clearInterval(timer);timer=null;}
+  if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
+  video.pause();video.srcObject=null;$('video').style.display='none';$('preview').style.display='block';
+}
+function renderImage(src){
+  var w=src.videoWidth||src.naturalWidth||src.width,h=src.videoHeight||src.naturalHeight||src.height;
+  if(!w||!h)throw Error('Camera frame is empty');
+  ctx.fillStyle='#05131f';ctx.fillRect(0,0,512,384);
+  var scale=Math.min(512/w,384/h),dw=w*scale,dh=h*scale;
+  ctx.drawImage(src,(512-dw)/2,(384-dh)/2,dw,dh);
+  // Match Python: model inputs use the full frame resized to 96x96.
+  sc.drawImage(src,0,0,96,96);
+  if(!model)throw Error('Experimental RGB model has not loaded');
+  var arr=sc.getImageData(0,0,96,96);
+  var ft=UltronWaterRGB.features(arr.data,96,96);
+  var result=UltronWaterRGB.classify(ft,model);
+  count++;last=result;
+  $('labelOutput').textContent=result.label;
+  var pct=Math.round(result.score*1000)/10;
+  $('scoreOutput').textContent='Experimental model score: '+pct+'% (not calibrated accuracy)';
+  $('fill').style.width=pct+'%';
+  $('metadata').textContent='Frames analyzed: '+count+' · Source: '+(mode==='webcam'?'this visitor’s camera':mode==='remote'?'remote HTTPS camera':'uploaded photograph');
+}
+async function tickWebcam(){if(busy||mode!=='webcam')return;busy=true;try{if(video.readyState>=2)renderImage(video);}catch(e){status('Camera frame error: '+e.message);}finally{busy=false;}}
+async function startWebcam(){
+  stop();if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){status('This browser cannot use cameras. Upload a photo instead.');return;}
+  if(!model){status('Model not loaded yet.');return;}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    video.srcObject=stream;await video.play();mode='webcam';
+    status('This browser camera is live. Frames are analyzed on this device, approximately every second. Other site visitors see their own device, not this camera.');
+    await tickWebcam();timer=setInterval(tickWebcam,1000);
+  }catch(e){stop();status('Camera permission or device problem: '+e.message);}
+}
+async function tickRemote(){
+  if(busy||mode!=='remote')return;busy=true;
+  try{
+    var u=UltronWaterRGB.captureEndpoint($('remoteUrl').value);
+    var resp=await fetch(u,{mode:'cors',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(9000)});
+    if(!resp.ok)throw Error('Camera returned HTTP '+resp.status);
+    var blob=await resp.blob();
+    if(!blob.type.startsWith('image/'))throw Error('Endpoint did not return an image');
+    var bmp=await createImageBitmap(blob);try{renderImage(bmp);}finally{bmp.close();}
+    status('Secure remote camera JPEG received and analyzed in this browser.');
+  }catch(e){stop();status('Remote camera unavailable or blocked by CORS/authentication: '+e.message+'; a public GitHub URL alone cannot create an internet camera feed.');}
+  finally{busy=false;}
+}
+function startRemote(){
+  if(!model){status('Model not loaded yet');return;}
+  try{UltronWaterRGB.captureEndpoint($('remoteUrl').value);}catch(e){status(e.message);return;}
+  stop();mode='remote';status('Connecting to your authorized HTTPS camera gateway...');
+  tickRemote();timer=setInterval(tickRemote,1000);
+}
+$('webcam').addEventListener('click',startWebcam);$('remote').addEventListener('click',startRemote);
+$('stop').addEventListener('click',function(){stop();status('Live analysis stopped. You can still save the most recent frame.');});
+$('save').addEventListener('click',function(){
+  if(!last){status('No image yet to save.');return;}
+  var a=document.createElement('a');a.download='ultron_rgb_frame_'+Date.now()+'.jpg';
+  a.href=canvas.toDataURL('image/jpeg',.92);a.click();
+});
+$('upload').addEventListener('change',async function(){
+  var f=this.files&&this.files[0];if(!f)return;
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type)||f.size>15*1024*1024){status('Choose a JPG, PNG or WebP under 15 MB.');return;}
+  stop();
+  try{
+    var img=await createImageBitmap(f);try{renderImage(img);}finally{img.close();}
+    status('Photo analyzed in this browser. This is a visual dark-patch prototype, not the SAR detector.');
+  }catch(e){status('Cannot process selected photo: '+e.message);}
+});
+fetch('models/water_tray_prototype.json',{cache:'no-cache'}).then(function(r){
+  if(!r.ok)throw Error('Hosted experimental model missing (HTTP '+r.status+')');
+  return r.json();
+}).then(function(m){UltronWaterRGB.classify([.1,.1,.05,.1],m);model=m;
+  status('Experimental browser model loaded. Select camera, upload an image, or connect an authorized HTTPS camera gateway.');
+}).catch(function(e){status('Model unavailable: '+e.message);});
+window.addEventListener('pagehide',stop);
+})();
+</script></body></html>
