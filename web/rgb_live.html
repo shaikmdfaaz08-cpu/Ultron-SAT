@@ -19,7 +19,19 @@ button:hover{background:#24759b}button:disabled{opacity:.55;cursor:not-allowed}.
 #fill{width:0;height:100%;background:#39badd;transition:width .2s}
 #status{padding:12px;background:#0a2237;border:1px solid #2a536d;border-radius:8px;line-height:1.5;min-height:65px}
 .note{border-left:3px solid #70b2cc;padding:9px 12px;margin-top:14px;background:#102d40;color:#d5e8f6;font-size:13px;line-height:1.55}
-strong{color:#fff}@media(max-width:840px){.grid{grid-template-columns:1fr}}body.embedded > header{display:none}body.embedded main{margin:0;max-width:none;padding:8px 5px 12px}body.embedded .grid{margin-top:0}body.embedded{background:transparent}
+strong{color:#fff}
+.rgb-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rgb-preview-grid > div{min-width:0}
+.rgb-cap{font-size:12px;color:#c6e6fa;margin-bottom:7px;line-height:1.4}
+#rgbMaskStatus{font-size:12px;line-height:1.5;color:#b4d7e8;margin:8px 0 14px}
+#rgbDriftDemo{margin:16px 0;padding:13px;border:1px solid #396782;border-radius:12px;background:#092137}
+#rgbDriftDemo[hidden]{display:none!important}
+#rgbDriftCanvas{aspect-ratio:16 / 9;max-height:340px}
+#rgbDriftDemo input[type=range]{padding:0;margin-top:10px}
+#rgbTimeline{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+#rgbTimeline button.active{background:#39a3c3;color:#041823}
+@media(max-width:560px){.rgb-preview-grid{grid-template-columns:1fr}}
+@media(max-width:840px){.grid{grid-template-columns:1fr}}body.embedded > header{display:none}body.embedded main{margin:0;max-width:none;padding:8px 5px 12px}body.embedded .grid{margin-top:0}body.embedded{background:transparent}
 </style></head><body>
 <header><div><span class="pill">ULTRON-SAT · PUBLIC WEBSITE</span><h1>Live RGB water-tray experiment</h1></div><a href="./">Return to mission control</a></header>
 <main>
@@ -28,7 +40,17 @@ strong{color:#fff}@media(max-width:840px){.grid{grid-template-columns:1fr}}body.
 <section class="panel">
 <h2>Camera / image source</h2>
 <video id="video" autoplay muted playsinline aria-hidden="true"></video>
-<canvas id="preview" width="512" height="384" aria-label="Camera frame being classified"></canvas>
+<div class="rgb-preview-grid"><div><div class="rgb-cap">Original camera frame</div><canvas id="preview" width="512" height="384" aria-label="Original optical camera image"></canvas></div>
+<div><div class="rgb-cap">Candidate dark region · visual colour overlay</div><canvas id="rgbMaskPreview" width="512" height="384" aria-label="Estimated dark or brown region highlighted in orange; not trained oil segmentation"></canvas></div></div>
+<p id="rgbMaskStatus">Upload an image or start your camera to display a color-based candidate-region highlight. This is not an oil segmentation model.</p>
+<div id="rgbDriftDemo" hidden>
+<h3>0–48 h movement illustration · NOT a weather forecast</h3>
+<p class="muted">Demonstrates how a detected dark region <em>could</em> be moved across an image. Direction, speed and spreading are illustrative, not measured; no location, ocean-current or weather data is used. For actual forecast-driven SAR scenarios, use the separate satellite detector with verified coordinates and image scale.</p>
+<canvas id="rgbDriftCanvas" width="512" height="288" aria-label="Illustrative candidate patch movement over time"></canvas>
+<label for="rgbHour">Illustrative hours: <strong id="rgbHourLabel">0</strong> / 48</label>
+<input type="range" min="0" max="48" value="0" id="rgbHour">
+<div id="rgbTimeline"><button type="button" data-hour="0">0 h</button><button type="button" data-hour="6">6 h</button><button type="button" data-hour="12">12 h</button><button type="button" data-hour="24">24 h</button><button type="button" data-hour="48">48 h</button><button type="button" id="rgbPlay">Play illustration</button></div>
+</div>
 <div class="buttons"><button id="webcam">Use this device's camera</button><button id="stop">Stop live analysis</button><button id="save">Save current frame</button></div>
 <label for="upload">Or analyze a JPG/PNG from any visitor</label>
 <input id="upload" type="file" accept="image/jpeg,image/png,image/webp">
@@ -68,6 +90,79 @@ var $=function(x){return document.getElementById(x);};
 var model=null,mode=null,timer=null,stream=null,busy=false,count=0,last=null,video=$('video'),canvas=$('preview'),ctx=canvas.getContext('2d',{willReadFrequently:true});
 var small=document.createElement('canvas');small.width=96;small.height=96;
 var sc=small.getContext('2d',{willReadFrequently:true});
+var overlay=$('rgbMaskPreview'),oc=overlay.getContext('2d',{willReadFrequently:true});
+var drift=$('rgbDriftCanvas'),dc=drift.getContext('2d'),maskSprite=document.createElement('canvas');
+maskSprite.width=512;maskSprite.height=384;
+var spriteCtx=maskSprite.getContext('2d'),candidateCount=0,lastMaskAt=0;
+var simulationHour=0,playingDemo=false,lastAnimTs=0,animHandle=0;
+function drawVisualDemo(hour){
+ if(!$('rgbDriftDemo')||$('rgbDriftDemo').hidden)return;
+ simulationHour=Math.max(0,Math.min(48,Number(hour)||0));
+ $('rgbHour').value=String(simulationHour);
+ $('rgbHourLabel').textContent=simulationHour.toFixed(1);
+ $('rgbTimeline').querySelectorAll('button[data-hour]').forEach(function(b){b.classList.toggle('active',Number(b.dataset.hour)===Math.round(simulationHour));});
+ dc.clearRect(0,0,drift.width,drift.height);dc.fillStyle='#071727';dc.fillRect(0,0,drift.width,drift.height);
+ var scale=Math.min(drift.width/512,drift.height/384),w=512*scale,h=384*scale,x=(drift.width-w)/2,y=(drift.height-h)/2;
+ dc.drawImage(canvas,x,y,w,h);
+ var shift=simulationHour/48,dx=28*shift,dy=-13*shift;
+ dc.globalAlpha=.55;dc.drawImage(maskSprite,x+dx,y+dy,w,h);dc.globalAlpha=1;
+ dc.fillStyle='#061e34dd';dc.fillRect(9,9,330,42);
+ dc.fillStyle='#d8f6ff';dc.font='bold 14px system-ui';dc.fillText('Visual demo · +'+simulationHour.toFixed(1)+'h',16,26);
+ dc.font='11px system-ui';dc.fillText('Illustrative translation; not a real-world forecast',16,42);
+}
+function tickDemo(ts){
+ if(!playingDemo)return;
+ if(lastAnimTs)simulationHour+=(Math.min(150,ts-lastAnimTs)/1000)*3;
+ lastAnimTs=ts;
+ if(simulationHour>=48)simulationHour=0;
+ drawVisualDemo(simulationHour);
+ animHandle=requestAnimationFrame(tickDemo);
+}
+function stopDemo(){playingDemo=false;cancelAnimationFrame(animHandle);lastAnimTs=0;$('rgbPlay').textContent='Play illustration';}
+$('rgbHour').addEventListener('input',function(){stopDemo();drawVisualDemo(this.value);});
+$('rgbTimeline').querySelectorAll('button[data-hour]').forEach(function(button){
+ button.addEventListener('click',function(){stopDemo();drawVisualDemo(button.dataset.hour);});
+});
+$('rgbPlay').addEventListener('click',function(){
+ if(playingDemo){stopDemo();return;}
+ playingDemo=true;$('rgbPlay').textContent='Pause illustration';lastAnimTs=0;
+ animHandle=requestAnimationFrame(tickDemo);
+});
+function drawCandidateOverlay(){
+ // Pixel colour thresholds are separate from the trained image classifier.
+ var pixels=ctx.getImageData(0,0,512,384),candidate=UltronWaterRGB.visualMask(pixels.data,512,384);
+ candidateCount=candidate.count;
+ var data=oc.createImageData(512,384),shade=spriteCtx.createImageData(512,384);
+ for(var p=0;p<candidate.mask.length;p++){
+  var k=p*4,v=candidate.mask[p]===1;
+  for(var ch=0;ch<3;ch++)data.data[k+ch]=pixels.data[k+ch];
+  data.data[k+3]=255;
+  if(v){
+   data.data[k]=Math.round(.52*pixels.data[k]+.48*255);
+   data.data[k+1]=Math.round(.52*pixels.data[k+1]+.48*132);
+   data.data[k+2]=Math.round(.52*pixels.data[k+2]+.48*41);
+   shade.data[k]=255;shade.data[k+1]=112;shade.data[k+2]=38;shade.data[k+3]=175;
+  }
+ }
+ oc.putImageData(data,0,0);spriteCtx.putImageData(shade,0,0);
+ $('rgbMaskStatus').textContent='Orange overlay: '+(candidate.fraction*100).toFixed(1)+'% of frame matches a brown/dark COLOR RULE (not AI segmentation, not confirmed oil).';
+ $('rgbDriftDemo').hidden=candidate.count===0;
+ if(candidate.count>0)drawVisualDemo(simulationHour);
+ var now=Date.now();
+ if(window.parent!==window&&
+   ((mode!=='webcam'&&mode!=='remote')||now-lastMaskAt>2800)){
+   lastMaskAt=now;
+   var reduced=document.createElement('canvas');reduced.width=reduced.height=256;
+   var rc=reduced.getContext('2d',{willReadFrequently:true});
+   rc.drawImage(canvas,0,0,256,256);
+   var img=rc.getImageData(0,0,256,256);
+   var result=UltronWaterRGB.visualMask(img.data,256,256);
+   window.parent.postMessage({
+     type:'ultron-rgb-visual-frame',mask:result.mask,
+     width:512,height:384,method:'color-threshold-only',candidateFraction:result.fraction
+   },location.origin);
+ }
+}
 function status(text){$('status').textContent=text;}
 function stop(){
   mode=null;if(timer){clearInterval(timer);timer=null;}
@@ -92,6 +187,7 @@ function renderImage(src){
   $('scoreOutput').textContent='Experimental model score: '+pct+'% (not calibrated accuracy)';
   $('fill').style.width=pct+'%';
   $('metadata').textContent='Frames analyzed: '+count+' · Source: '+(mode==='webcam'?'this visitor’s camera':mode==='remote'?'remote HTTPS camera':'uploaded photograph');
+  drawCandidateOverlay();
 }
 async function tickWebcam(){if(busy||mode!=='webcam')return;busy=true;try{if(video.readyState>=2)renderImage(video);}catch(e){status('Camera frame error: '+e.message);}finally{busy=false;}}
 async function startWebcam(){
@@ -145,6 +241,6 @@ fetch('models/water_tray_prototype.json',{cache:'no-cache'}).then(function(r){
 }).then(function(m){UltronWaterRGB.classify([.1,.1,.05,.1],m);model=m;
   status('Experimental browser model loaded. Select camera, upload an image, or connect an authorized HTTPS camera gateway.');
 }).catch(function(e){status('Model unavailable: '+e.message);});
-window.addEventListener('pagehide',stop);
+window.addEventListener('pagehide',function(){stopDemo();stop();});
 })();
 </script></body></html>
