@@ -1,12 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-fastapi
-uvicorn
-python-multipart
-pillow
-numpy
-scipy
-torch
-torchvision
-segmentation-models-pytorch
-opencv-python
-albumentations
+# Redirect-only Render service. Models live on GitHub Pages or local AI runtime.
+# For local Python/PyTorch inference install requirements-ai.txt instead.
+uvicorn>=0.30,<1.0
