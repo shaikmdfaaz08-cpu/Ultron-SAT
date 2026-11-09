@@ -65,3 +65,21 @@ test('cyan divider on main detection view supports drag on mouse and touch and k
  assert.match(main,/setComparison\(next\)/);
  assert.match(main,/const den=Number\(range\.max\|\|100\)/);
 });
+
+
+test('visible cyan divider itself is draggable without altering the underlying stage controls',()=>{
+ const main=file('web/ultron_main_detection_bridge.js');
+ assert.doesNotThrow(()=>new Function(main));
+ assert.match(main,/function lineHit\(e\)/);
+ assert.match(main,/originalOverlay\.getBoundingClientRect\(\)/);
+ assert.match(main,/bounds\.left\+bounds\.width\*compare/);
+ assert.match(main,/Math\.abs\(e\.clientX-lineX\)/);
+ assert.match(main,/stage\.addEventListener\('pointerdown'/);
+ assert.match(main,/stage\.addEventListener\('pointermove'/);
+ assert.match(main,/stage\.addEventListener\('pointerup'/);
+ assert.match(main,/stage\.addEventListener\('pointercancel'/);
+ assert.match(main,/stage\.setPointerCapture\(e\.pointerId\)/);
+ assert.match(main,/moveDividerToClientX\(e\.clientX\)/);
+ assert.match(main,/e\.stopImmediatePropagation\(\)/);
+ assert.match(main,/pointer-events:none;display:none/);
+});
