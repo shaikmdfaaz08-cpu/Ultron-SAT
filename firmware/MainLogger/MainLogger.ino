@@ -28,6 +28,9 @@ constexpr uint32_t CAM_BAUD = 230400;
 constexpr char ROOT[] = "/ultron";
 HardwareSerial camera(2);
 bool sdOK = false, radioOK = false;
+// I2C scanner must find real sensor addresses before measurements are trusted.
+uint8_t i2cAddressCount = 0, i2cExpectedMask = 0;
+bool i2cBusTrusted = false;
 uint32_t txCount = 0, txErrors = 0, photosSaved = 0;
 bool captureAttempted = false, lastCaptureOK = false, cameraOnline = false;
 uint32_t nextFileId = 1, bootId = 0, sampleNo = 0, previousSample = 0;
@@ -82,11 +85,13 @@ bool mpuReady = false, inaReady = false;
 Reading readSensors() {
   Reading r;
   uint16_t raw, config;
-  if (readReg16(TMP_ADDR, 0x01, config) &&
+  if (i2cBusTrusted && (i2cExpectedMask & 1) &&
+      readReg16(TMP_ADDR, 0x01, config) &&
       readReg16(TMP_ADDR, 0x00, raw)) {
     r.t = decodeTMP102(raw, (config & 0x0010) != 0); r.ok |= 1;
   }
-  if (!inaReady) inaReady = writeReg16(INA_ADDR, 0x00, 0x399F);
+  if (i2cBusTrusted && (i2cExpectedMask & 2) && !inaReady)
+    inaReady = writeReg16(INA_ADDR, 0x00, 0x399F);
   uint16_t shunt, bus;
   if (inaReady && readReg16(INA_ADDR, 0x01, shunt) &&
       readReg16(INA_ADDR, 0x02, bus)) {
@@ -95,7 +100,7 @@ Reading readSensors() {
     r.ma = shuntV / INA_SHUNT_OHMS * 1000.0f;
     r.mw = r.v * r.ma; r.ok |= 2;
   } else { inaReady = false; }
-  if (!mpuReady) mpuReady = initMPU();
+  if (i2cBusTrusted && (i2cExpectedMask & 4) && !mpuReady) mpuReady = initMPU();
   uint8_t b[14];
   if (mpuReady && readRegs(MPU_ADDR, 0x3B, b, sizeof(b))) {
     auto word = [&](int i) { return int16_t((uint16_t(b[i]) << 8) | b[i+1]); };
@@ -131,6 +136,8 @@ String makeUSBPacket(const String &sensorPacket, bool logSaved, const char *txSt
   s += ",\"last_write_ok\":" + String(sdOK ? (logSaved ? "true" : "false") : "null") + "}";
   s += ",\"lora\":{\"state\":\"" + String(txState) + "\",\"tx_count\":" + String(txCount);
   s += ",\"errors\":" + String(txErrors) + "}";
+  s += ",\"i2c\":{\"state\":\"" + String(i2cBusTrusted ? "SCANNED" : i2cAddressCount ? "SUSPECT" : "NO_DEVICES") + "\"";
+  s += ",\"responding\":" + String(i2cAddressCount) + ",\"found_mask\":" + String(i2cExpectedMask) + "}";
   s += ",\"camera\":{\"state\":\"" + String(!ENABLE_CAMERA ? "DISABLED" : !cameraOnline ? "UART_NOT_DETECTED" : !sdOK ? "WAITING_FOR_SD" : !captureAttempted ? "READY" : lastCaptureOK ? "LAST_CAPTURE_SAVED" : "CAPTURE_FAILED") + "\"";
   s += ",\"frames\":" + String(photosSaved) + ",\"last_capture_ok\":";
   s += String(captureAttempted ? (lastCaptureOK ? "true" : "false") : "null") + "}}";
@@ -281,21 +288,36 @@ bool savePhoto() {
 
 void scanI2C() {
   Serial.println("I2C scan: expected 0x40 INA219, 0x48 TMP102, 0x68 MPU6050");
-  uint8_t found = 0;
+  i2cAddressCount = 0;
+  i2cExpectedMask = 0;
+  uint8_t unexpected = 0;
   for (uint8_t a=1; a<127; ++a) {
     Wire.beginTransmission(a);
-    if (Wire.endTransmission() == 0) { ++found; Serial.printf("  found 0x%02X\n", a); }
+    if (Wire.endTransmission() != 0) continue;
+    ++i2cAddressCount;
+    Serial.printf("  found 0x%02X\n", a);
+    if (a == TMP_ADDR) i2cExpectedMask |= 1;
+    else if (a == INA_ADDR) i2cExpectedMask |= 2;
+    else if (a == MPU_ADDR) i2cExpectedMask |= 4;
+    else ++unexpected;
   }
-  Serial.printf("I2C scan complete: %u responding address(es)\n", unsigned(found));
-  if (!found) Serial.println("No I2C devices responded. Sensor readings will remain null until communication works.");
+  // A flood of phantom ACKs or zero responding devices is an unreliable bus.
+  // Never claim valid readings from a scan that already failed.
+  i2cBusTrusted = (i2cExpectedMask != 0 && unexpected <= 2 &&
+                   i2cAddressCount <= 5);
+  Serial.printf("I2C scan complete: %u responding, mask %u, trusted %s\n",
+      unsigned(i2cAddressCount), unsigned(i2cExpectedMask),
+      i2cBusTrusted ? "YES" : "NO");
+  if (!i2cBusTrusted)
+    Serial.println("I2C SUSPECT: power down and inspect SDA/SCL, ground, power and insulation; no readings will be trusted.");
 }
 void setup() {
   Serial.begin(115200); delay(500);
   Serial.println("UltronSat starting");
   Wire.begin(21, 22); Wire.setClock(100000); Wire.setTimeOut(50);
   scanI2C();
-  inaReady = writeReg16(INA_ADDR, 0x00, 0x399F);
-  mpuReady = initMPU();
+  inaReady = i2cBusTrusted && (i2cExpectedMask & 2) && writeReg16(INA_ADDR, 0x00, 0x399F);
+  mpuReady = i2cBusTrusted && (i2cExpectedMask & 4) && initMPU();
   analogReadResolution(12); pinMode(LDR_PIN, INPUT);
   analogSetPinAttenuation(LDR_PIN, ADC_11db);
   pinMode(SD_CS, OUTPUT); digitalWrite(SD_CS, HIGH);
