@@ -32,6 +32,7 @@ scripts = [
     "ultron_browser_oil_ai.js",
     "ultron_weather_drift.js",
     "ultron_inline_ai.js",
+    "ultron_rgb_inline.js",
     "ultron_main_detection_bridge.js",
     "ultron_ai_button_fix.js",
     "ultron_ai_remote_bridge.js",
