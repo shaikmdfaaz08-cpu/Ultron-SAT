@@ -14,7 +14,10 @@
 // frequency supported by your Ra-02 and antenna, and match the receiver.
 constexpr long LORA_FREQUENCY_HZ = 0;
 constexpr bool ENABLE_CAMERA = true; // probes UART companion; no photo without working SD
-constexpr uint32_t SAMPLE_INTERVAL_MS = 60000; // sample and record once per minute
+constexpr uint32_t SAMPLE_INTERVAL_MS = 1000;   // read sensors and publish USB JSON once per second
+constexpr uint32_t LOG_INTERVAL_MS = 60000;    // save one sensor record per minute
+constexpr uint32_t CAMERA_INTERVAL_MS = 60000; // attempt one SD photograph per minute when ready
+constexpr uint32_t LORA_INTERVAL_MS = 60000;   // radio packets separate from the fast USB stream
 constexpr uint64_t LOG_BUDGET_BYTES = 64ULL * 1024 * 1024;
 constexpr uint64_t FREE_RESERVE_BYTES = 4ULL * 1024 * 1024;
 constexpr uint32_t LOG_CHUNK_BYTES = 64 * 1024;
@@ -34,6 +37,8 @@ bool i2cBusTrusted = false;
 uint32_t txCount = 0, txErrors = 0, photosSaved = 0;
 bool captureAttempted = false, lastCaptureOK = false, cameraOnline = false;
 uint32_t nextFileId = 1, bootId = 0, sampleNo = 0, previousSample = 0;
+uint32_t previousLog = 0, previousCamera = 0, previousRadio = 0;
+bool lastLogOK = false;
 uint64_t ownedBytes = 0;
 String activeLog;
 
@@ -138,7 +143,7 @@ String makeUSBPacket(const String &sensorPacket, bool logSaved, const char *txSt
   s += ",\"errors\":" + String(txErrors) + "}";
   s += ",\"i2c\":{\"state\":\"" + String(i2cBusTrusted ? "SCANNED" : i2cAddressCount ? "SUSPECT" : "NO_DEVICES") + "\"";
   s += ",\"responding\":" + String(i2cAddressCount) + ",\"found_mask\":" + String(i2cExpectedMask) + "}";
-  s += ",\"camera\":{\"state\":\"" + String(!ENABLE_CAMERA ? "DISABLED" : !cameraOnline ? "UART_NOT_DETECTED" : !sdOK ? "WAITING_FOR_SD" : !captureAttempted ? "READY" : lastCaptureOK ? "LAST_CAPTURE_SAVED" : "CAPTURE_FAILED") + "\"";
+  s += ",\"camera\":{\"state\":\"" + String(!ENABLE_CAMERA ? "DISABLED" : !sdOK ? "WAITING_FOR_SD" : !cameraOnline ? "UART_NOT_DETECTED" : !captureAttempted ? "READY" : lastCaptureOK ? "LAST_CAPTURE_SAVED" : "CAPTURE_FAILED") + "\"";
   s += ",\"frames\":" + String(photosSaved) + ",\"last_capture_ok\":";
   s += String(captureAttempted ? (lastCaptureOK ? "true" : "false") : "null") + "}}";
   return s;
@@ -343,7 +348,12 @@ void setup() {
     camera.setRxBufferSize(16384);
     camera.begin(CAM_BAUD, SERIAL_8N1, CAM_RX, CAM_TX);
   }
-  previousSample = millis() - SAMPLE_INTERVAL_MS; // first sample immediately
+  uint32_t started = millis();
+  previousSample = started - SAMPLE_INTERVAL_MS; // first sensor packet immediately
+  previousLog = started - LOG_INTERVAL_MS;       // first log record immediately when SD is ready
+  previousCamera = started;                     // first photo after a minute, not at boot
+  previousRadio = started - LORA_INTERVAL_MS;   // first radio packet if radio is configured
+  lastLogOK = sdOK;
 }
 void loop() {
   uint32_t now = millis();
@@ -352,10 +362,19 @@ void loop() {
   ++sampleNo;
   Reading r = readSensors();
   String packet = makePacket(r, now);
-  bool logSaved = sdOK && appendRecord(packet);
-  if (sdOK && !logSaved) Serial.println("SD: record NOT saved");
+  // One-second sensor/USB cadence is deliberately independent of SD writes.
+  if (uint32_t(now - previousLog) >= LOG_INTERVAL_MS) {
+    previousLog = now;
+    if (sdOK) {
+      lastLogOK = appendRecord(packet);
+      if (!lastLogOK) Serial.println("SD: record NOT saved");
+    } else {
+      lastLogOK = false;
+    }
+  }
   const char *txState = LORA_FREQUENCY_HZ <= 0 ? "DISABLED" : radioOK ? "READY" : "INIT_FAILED";
-  if (radioOK) {
+  if (radioOK && uint32_t(now - previousRadio) >= LORA_INTERVAL_MS) {
+    previousRadio = now;
     if (packet.length() > 255) { txState = "PACKET_TOO_LARGE"; ++txErrors; }
     else if (!LoRa.beginPacket()) { txState = "BUSY"; ++txErrors; }
     else {
@@ -366,15 +385,17 @@ void loop() {
       else { txState = "TX_FAILED"; ++txErrors; }
     }
   }
-  if (ENABLE_CAMERA) {
+  // Publish the real USB sample before optional blocking camera I/O.
+  Serial.println(makeUSBPacket(packet, lastLogOK, txState));
+  // Avoid camera polling when SD initialization failed or every second.
+  if (ENABLE_CAMERA && sdOK && uint32_t(now - previousCamera) >= CAMERA_INTERVAL_MS) {
+    previousCamera = now;
     cameraOnline = probeCamera();
     if (!cameraOnline) Serial.println("CAM: UART companion not detected; photo skipped");
-    else if (!sdOK) Serial.println("CAM: UART companion detected, but SD unavailable; no photo saved");
     else {
       captureAttempted = true;
       lastCaptureOK = savePhoto();
       if (lastCaptureOK) ++photosSaved;
     }
   }
-  Serial.println(makeUSBPacket(packet, logSaved, txState));
 }
