@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'experiments/water_tray_2026_11_09/**'
+      - 'A.I/train_water_tray_prototype.py'
       - 'tests/**'
       - 'build_static_dashboard.py'
       - 'export_browser_model.py'
@@ -39,6 +41,10 @@ jobs:
           python -m pip install --disable-pip-version-check segmentation-models-pytorch==0.6.0 onnx==1.17.0 onnxruntime==1.20.1
       - name: Export and validate real trained U-Net for browser
         run: python export_browser_model.py
+      - name: Train experimental RGB water-tray classifier (NOT oil detection)
+        run: |
+          python -m pip install --disable-pip-version-check 'scikit-learn>=1.4,<2' 'Pillow>=10,<13'
+          python A.I/train_water_tray_prototype.py --data experiments/water_tray_2026_11_09 --out site-dist/experiments/water_tray_prototype
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
