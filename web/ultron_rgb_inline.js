@@ -33,10 +33,25 @@ function init(){
  // Accept only this same-origin embedded document's resize requests.
  window.addEventListener('message',function(ev){
    if(ev.source!==frame.contentWindow||ev.origin!==location.origin)return;
-   if(!ev.data||ev.data.type!=='ultron-rgb-height')return;
-   var h=Number(ev.data.height);
-   if(!Number.isFinite(h))return;
-   frame.style.height=Math.max(620,Math.min(2600,Math.ceil(h+15)))+'px';
+   if(!ev.data)return;
+   if(ev.data.type==='ultron-rgb-height'){
+     var h=Number(ev.data.height);
+     if(Number.isFinite(h))frame.style.height=Math.max(620,Math.min(2600,Math.ceil(h+15)))+'px';
+     return;
+   }
+   if(ev.data.type==='ultron-rgb-visual-frame'){
+     var d=ev.data;
+     // Optical color-rule overlay is NOT an actual trained segmentation
+     // and must never impersonate the SAR model or feed real marine forecasts.
+     if(d.method!=='color-threshold-only'||!(d.mask instanceof Uint8Array)||d.mask.length!==65536)return;
+     var src=frame.contentDocument?.getElementById('preview');
+     if(!src||src.tagName!=='CANVAS')return;
+     document.dispatchEvent(new CustomEvent('ultron:rgb-visual-demo',{detail:{
+       mask:d.mask,width:512,height:384,sourceCanvas:src,
+       model:'RGB colour-rule visual proxy',maskType:'color-rule-not-AI-segmentation',
+       candidateFraction:d.candidateFraction
+     }}));
+   }
  });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
