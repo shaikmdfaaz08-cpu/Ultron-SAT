@@ -1,0 +1,19 @@
+name: Verify Render redirect
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app.py'
+      - 'tests/test_render_redirect.py'
+      - '.github/workflows/render-redirect.yml'
+  workflow_dispatch:
+jobs:
+  redirect-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check import and redirect routes without AI dependencies
+        run: python -m unittest discover -s tests -p 'test_render_redirect.py' -v
