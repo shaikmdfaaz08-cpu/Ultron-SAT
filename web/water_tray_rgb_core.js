@@ -22,7 +22,6 @@
     return [dark/total,brown/total,veryDark/total,brownDark/total];
   }
   function validateModel(model){
-    if(!model||!model.not_oil_detection&&!model.verified_oil_detector===false){} // flags checked below
     if(!model||model.verified_oil_detector!==false||model.independent_test_accuracy!==null)
       throw Error("Only the reviewed experimental model is accepted");
     for(var k of ["mean","scale","coef"]){
