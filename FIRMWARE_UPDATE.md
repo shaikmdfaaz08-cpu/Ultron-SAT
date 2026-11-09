@@ -30,8 +30,8 @@ GPIO21 SDA/GPIO22 SCL. It uses GPIO34 for the LDR.
 The SD and radio share SPI GPIO18 SCK, GPIO19 MISO and GPIO23 MOSI with
 independent chip-select signals. Do not guess power connections from names.
 
-The factory-safe source leaves LORA_FREQUENCY_HZ = 0 and
-ENABLE_CAMERA = false until the specific hardware and integration are verified.
+The published MainLogger source leaves LORA_FREQUENCY_HZ = 0 (no transmission) and
+sets ENABLE_CAMERA = true only for guarded UART companion detection; photos are attempted only after the companion answers PING and SD storage works. The source samples and attempts SD recording every 60 seconds. These changes do not flash your hardware.
 Do not configure transmission until the module variant, matching receiver,
 suitable antenna and permitted radio parameters have been confirmed.
 The main program saves camera images only when SD storage works.
@@ -57,3 +57,7 @@ sensor wiring. Imported SD logs are marked historical, never live.
 The source ZIP's Node and C++ host tests passed locally, but those are software
 tests, not tests of actual battery safety, sensors, antenna, radio delivery or
 camera wiring. Repository updates do not flash connected ESP32 devices.
+
+## November 9 update
+
+The main logger now samples and attempts SD logging once each minute, probes the UART ESP32-CAM, and records a photo only when the companion responds and SD is available. Existing owned-file rolling deletion still applies. An optional separate ESP32-CAM local Wi-Fi video sketch and a live viewer panel were added. **Camera video, LoRa radio delivery and sensor values are not verified in hardware.** The main ESP32 Wi-Fi/Bluetooth telemetry backup remains to be implemented; see [LIVE_SYSTEM_SETUP.md](LIVE_SYSTEM_SETUP.md).
