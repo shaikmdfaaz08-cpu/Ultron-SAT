@@ -31,7 +31,7 @@ The SD and radio share SPI GPIO18 SCK, GPIO19 MISO and GPIO23 MOSI with
 independent chip-select signals. Do not guess power connections from names.
 
 The published MainLogger source leaves LORA_FREQUENCY_HZ = 0 (no transmission) and
-sets ENABLE_CAMERA = true only for guarded UART companion detection; photos are attempted only after the companion answers PING and SD storage works. The current source reads sensors and emits USB JSON approximately every second (`SAMPLE_INTERVAL_MS = 1000`). It attempts one SD telemetry log, UART camera photo, and (only if permitted/configured) LoRa packet every 60 seconds. Camera file transfer or storage operations are blocking, so occasional gaps longer than one second can occur. These changes do not flash the hardware. These changes do not flash your hardware.
+sets ENABLE_CAMERA = true only for guarded UART companion detection; photos are attempted only after the companion answers PING and SD storage works. The current source reads sensors and emits USB JSON approximately every second (`SAMPLE_INTERVAL_MS = 1000`). It attempts one SD telemetry log, UART camera photo, and (only if permitted/configured) LoRa packet every 60 seconds. Camera file transfer or storage operations are blocking, so occasional gaps longer than one second can occur. These changes do not flash your hardware.
 Do not configure transmission until the module variant, matching receiver,
 suitable antenna and permitted radio parameters have been confirmed.
 The main program saves camera images only when SD storage works.
