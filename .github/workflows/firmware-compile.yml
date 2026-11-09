@@ -1,0 +1,31 @@
+name: Verify ULTRON-SAT ESP32 firmware
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware-compile.yml'
+  workflow_dispatch:
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install compatible ESP32 core and LoRa library
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib install "LoRa"
+      - name: Compile main sensor and SD logger
+        run: arduino-cli compile --fqbn esp32:esp32:esp32 firmware/MainLogger
+      - name: Compile separate ground LoRa receiver
+        run: arduino-cli compile --fqbn esp32:esp32:esp32 firmware/LoRaReceiver
+      - name: Compile ESP32-CAM UART photo firmware
+        run: arduino-cli compile --fqbn esp32:esp32:esp32cam firmware/CameraNode
+      - name: Compile optional private Wi-Fi video firmware with CI placeholders
+        run: |
+          printf '%s\n' '#define CAMERA_WIFI_SSID "CI_PLACEHOLDER_NOT_A_NETWORK"' '#define CAMERA_WIFI_PASSWORD "CI_PLACEHOLDER_NOT_A_PASSWORD"' > firmware/CameraWifiStream/camera_wifi_secrets.h
+          arduino-cli compile --fqbn esp32:esp32:esp32cam firmware/CameraWifiStream
