@@ -43,6 +43,13 @@ scripts = [
 missing = [name for name in scripts if f'{name}' not in html]
 injection = "".join(f'<script src="{name}" defer></script>' for name in missing)
 html = html.replace("</body>", injection + "</body>")
+# Browser-side water-tray appearance model. Keep separate from SAR ONNX weights.
+rgb_model = root / "experiments" / "water_tray_2026_11_09" / "prototype_model.json"
+if not rgb_model.is_file():
+    raise SystemExit("Experimental RGB water-tray model missing; refusing broken public demo.")
+rgb_target = out / "models" / "water_tray_prototype.json"
+rgb_target.parent.mkdir(parents=True, exist_ok=True)
+shutil.copy2(rgb_model, rgb_target)
 (out / "index.html").write_text(html, encoding="utf-8")
 (out / ".nojekyll").write_text("", encoding="utf-8")
 print(f"Static site ready, original dashboard {len(html):,} characters; copied web assets.")
