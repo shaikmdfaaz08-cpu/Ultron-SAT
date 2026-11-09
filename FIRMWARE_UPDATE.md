@@ -31,7 +31,7 @@ The SD and radio share SPI GPIO18 SCK, GPIO19 MISO and GPIO23 MOSI with
 independent chip-select signals. Do not guess power connections from names.
 
 The published MainLogger source leaves LORA_FREQUENCY_HZ = 0 (no transmission) and
-sets ENABLE_CAMERA = true only for guarded UART companion detection; photos are attempted only after the companion answers PING and SD storage works. The source samples and attempts SD recording every 60 seconds. These changes do not flash your hardware.
+sets ENABLE_CAMERA = true only for guarded UART companion detection; photos are attempted only after the companion answers PING and SD storage works. The current source reads sensors and emits USB JSON approximately every second (`SAMPLE_INTERVAL_MS = 1000`). It attempts one SD telemetry log, UART camera photo, and (only if permitted/configured) LoRa packet every 60 seconds. Camera file transfer or storage operations are blocking, so occasional gaps longer than one second can occur. These changes do not flash the hardware. These changes do not flash your hardware.
 Do not configure transmission until the module variant, matching receiver,
 suitable antenna and permitted radio parameters have been confirmed.
 The main program saves camera images only when SD storage works.
@@ -60,4 +60,4 @@ camera wiring. Repository updates do not flash connected ESP32 devices.
 
 ## November 9 update
 
-The main logger now samples and attempts SD logging once each minute, probes the UART ESP32-CAM, and records a photo only when the companion responds and SD is available. Existing owned-file rolling deletion still applies. An optional separate ESP32-CAM local Wi-Fi video sketch and a live viewer panel were added. **Camera video, LoRa radio delivery and sensor values are not verified in hardware.** The main ESP32 Wi-Fi/Bluetooth telemetry backup remains to be implemented; see [LIVE_SYSTEM_SETUP.md](LIVE_SYSTEM_SETUP.md).
+The main logger now samples and transmits USB telemetry roughly once every second, attempts SD logging once per minute, and attempts an ESP32-CAM UART photo each minute only when the companion and SD are ready. Existing owned-file rolling deletion still applies. An optional separate ESP32-CAM local Wi-Fi video sketch and a live viewer panel were added. **Camera video, LoRa radio delivery and sensor values are not verified in hardware.** The main ESP32 Wi-Fi/Bluetooth telemetry backup remains to be implemented; see [LIVE_SYSTEM_SETUP.md](LIVE_SYSTEM_SETUP.md).
