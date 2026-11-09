@@ -76,7 +76,7 @@ The **live ESP32 readings extension** is `web/ultron_esp32_telemetry.js`, which 
 **Live GitHub Pages dashboard:** https://shaikmdfaaz08-cpu.github.io/Ultron-SAT/  
 **Render redirect:** https://ultron-sat.onrender.com/
 
-**Supported readings:** TMP102 temperature; INA219 monitored 5 V bus voltage, current and power; MPU6050 accelerometer and gyroscope; LDR ADC light reading. The panel reads newline-delimited JSON telemetry from a USB-connected ESP32 or ground LoRa receiver using desktop Chromium Web Serial at 115200 baud. It also imports historical SD `.log` files and exports CSV. Samples typically arrive every 30 seconds per the supplied firmware.
+**Supported readings:** TMP102 temperature; INA219 monitored 5 V bus voltage, current and power; MPU6050 accelerometer and gyroscope; LDR ADC light reading. The panel reads newline-delimited JSON telemetry from a USB-connected ESP32 or ground LoRa receiver using desktop Chromium Web Serial at 115200 baud. It also imports historical SD `.log` files and exports CSV. The latest MainLogger source now samples and attempts SD logging every 60 seconds; older uploaded firmware may still use 30 seconds.
 
 **Important:** The sensor panel does **not** automatically receive readings through the public Render server. USB serial works on the computer to which the hardware is connected, with a supported browser and user authorization. The separate ESP32-CAM sketch stores images on SD, not a live internet camera feed. The orbit, solar and battery graphics remain illustrative simulations unless explicitly wired to hardware. Changing ArduCAM text to ESP32 Cam does not retrain or recalibrate the camera AI model.
 
@@ -87,3 +87,7 @@ A segmentation mask indicates a candidate oil slick, not verified pollution. Res
 ## Existing files
 
 Previous project work has been retained. The new launch/training utilities do not delete old runs, models or datasets.
+
+## Live camera and redundant links (November 2026)
+
+See [LIVE_SYSTEM_SETUP.md](LIVE_SYSTEM_SETUP.md) for the current USB, LoRa ground receiver, camera-streaming and rolling SD implementation, what remains unimplemented, and hardware prerequisites. The Wi-Fi streaming firmware in `firmware/CameraWifiStream` is optional and replaces the UART still-photo sketch on a single ESP32-CAM. LoRa remains disabled in the published firmware until the permitted radio parameters and compatible hardware are verified.
