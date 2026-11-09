@@ -1,0 +1,34 @@
+{
+  "model_name": "ULTRON-SAT RGB visible dark patch prototype",
+  "trained_on": "20 single-tray camera frames derived features",
+  "verified_oil_detector": false,
+  "material_labels_verified": false,
+  "independent_test_accuracy": null,
+  "features": [
+    "dark_frac",
+    "brown_frac",
+    "very_dark_frac",
+    "brown_dark_frac"
+  ],
+  "mean": [
+    0.09723300000000001,
+    0.08739150000000001,
+    0.04128140000000001,
+    0.07872725
+  ],
+  "scale": [
+    0.11532403107808886,
+    0.12479504091208916,
+    0.04628927536201015,
+    0.11167082392410067
+  ],
+  "coef": [
+    0.6717867527791915,
+    1.1986595038157855,
+    0.8155710931733309,
+    1.2300680321707298
+  ],
+  "intercept": 1.685618493272903,
+  "training_accuracy_only": 0.85,
+  "warning": "Same tray only. NOT validated oil detection, oil/molasses classification, or segmentation. No independent-scene test."
+}
