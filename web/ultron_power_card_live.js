@@ -20,7 +20,7 @@ function fromUSB(){
  if(!item||!item.packet)return null;
  const age=Math.max(0,Date.now()-item.when);
  const connected=($("hwconn")?.textContent||"").trim()==="USB live readings";
- if(item.origin!=="USB"||!connected||age>90000)return null;
+ if(item.origin!=="USB"||!connected||age>12000)return null;
  const p=item.packet;
  const ok= !Number.isInteger(p.ok)||!!(p.ok&2);
  const voltage=ok?pick(p,["v","power.bus_voltage","power.bus_voltage_v","ina219.voltage_v"]):null;
@@ -34,7 +34,7 @@ function fromOriginalHardware(){
  if(!t||typeof app?.hasHardware!=="function"||!app.hasHardware())return null;
  if(t.source!=="REAL HARDWARE"||!["USB","WIFI"].includes(t.transport))return null;
  const age=Date.now()-t.received_at;
- if(!Number.isFinite(age)||age<0||age>90000)return null;
+ if(!Number.isFinite(age)||age<0||age>12000)return null;
  return {
   voltage:n(t.power?.bus_voltage),current:n(t.power?.current_mA),
   power:null,cell:n(t.power?.battery_voltage),
