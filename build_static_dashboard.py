@@ -34,7 +34,6 @@ scripts = [
     "ultron_inline_ai.js",
     "ultron_rgb_inline.js",
     "ultron_main_detection_bridge.js",
-    "ultron_ai_button_fix.js",
     "ultron_legacy_ai_bridge.js",
     "ultron_orbit_eps.js",
     "ultron_subsystem_activity.js",
