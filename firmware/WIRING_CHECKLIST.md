@@ -8,6 +8,50 @@ Unplug USB, isolate solar and battery sources, and have the assembly inspected b
 an instructor/experienced electronics teammate before any power-on or rewiring.
 Do not move wires, measure resistance, solder, or flash the board while power is present.
 
+## Observations from the 9 November photos and latest actual serial log
+
+Serial log now reports only `0x40` and `0x68` (two expected I2C addresses).
+The previously observed many-address scan is NOT reproduced in this latest log.
+The packet has `ok:6` (INA219 + MPU6050 firmware read paths valid);
+`t:null` and no `0x48` mean TMP102 is not detected by this scan.
+`v:5.06`, `i:-0.90 mA` and `p:-4.55 mW` are INA219
+monitored-rail values, **not** solar panel generation/battery charging proof.
+`l:4095` is maximum 12-bit ADC reading: the pictured LM393-style LDR
+module may expose BOTH analog and digital outputs, and the photo cannot prove
+which one is connected to main GPIO34. `ax/ay/az=0.00` is suspicious
+for a motionless accelerometer that should normally detect gravity;
+an MPU ACK and the `ok` bit do not establish sensor calibration.
+
+The photographs show:
+- A red perfboard with extensive underside solder clusters; possible unintended
+  adjacent-pad bridges cannot be ruled out from a photo.
+- Conductive aluminum mounting plates close to populated PCB surfaces and wires;
+  mechanical insulation and safe spacing must be verified by a qualified person.
+- A visible Ra-02 radio module and photoresistor board; antenna and radio wiring
+  have **not** been verified; do not transmit.
+- A 3.7 V cylindrical lithium-ion cell and a solar/USB charger/boost module
+  labeled `SOLAR IN` / `USB OUT` / `5V OUT`; do not assume LED operation
+  means correct battery safety or regulated power.
+- No identifiable ESP32-CAM with lens in the submitted photos. Do not assume
+  it is mounted, wired or programmed.
+- The exact TMP102 or external microSD reader pin labels are not reliably
+  legible; request close-up label photographs and a supervised point-to-point
+  continuity inspection rather than guessing wires by color.
+
+**The physical board may not be running the newest GitHub MainLogger.**
+The latest serial log prints `LoRa OFF/FAILED: check frequency and wiring`,
+whereas this repo's current MainLogger prints
+`LoRa DISABLED: frequency is zero` when disabled, and the repository's USB
+packet includes `sd/lora/camera` status objects missing from the supplied
+compact JSON. A GitHub merge does NOT reflash any boards.
+
+**Next safe checks, before additional energizing**: inspect underside solder
+clusters and plate clearance, battery wiring and multi-source power, identify
+the TMP102 breakout, and identify the SD-card module. Have an experienced
+electronics instructor verify electrically, with power safely isolated.
+Do not adjust or energize suspected shorts. Only after clearance, retest
+the TMP102, then the SD card, then the isolated ESP32-CAM UART/SD capture.
+
 ## Identify the THREE separate boards / roles
 
 1. **Main ESP32 DevKit** — runs `MainLogger/MainLogger.ino`: reads I2C sensors
