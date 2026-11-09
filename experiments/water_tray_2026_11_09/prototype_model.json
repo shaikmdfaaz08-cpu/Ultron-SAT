@@ -1,9 +1,14 @@
 {
   "model_name": "ULTRON-SAT RGB visible dark patch prototype",
-  "trained_on": "20 single-tray camera frames derived features",
+  "trained_on": "20 frames from one water-tray session; original RGB JPEG images",
+  "version": 1,
   "verified_oil_detector": false,
   "material_labels_verified": false,
   "independent_test_accuracy": null,
+  "classes": [
+    "no_obvious_dark_patch",
+    "dark_patch_visible"
+  ],
   "features": [
     "dark_frac",
     "brown_frac",
@@ -11,24 +16,25 @@
     "brown_dark_frac"
   ],
   "mean": [
-    0.09723300000000001,
-    0.08739150000000001,
-    0.04128140000000001,
-    0.07872725
+    0.09729817708333333,
+    0.08763020833333333,
+    0.041943359375,
+    0.07898763020833334
   ],
   "scale": [
-    0.11532403107808886,
-    0.12479504091208916,
-    0.04628927536201015,
-    0.11167082392410067
+    0.11547372090512117,
+    0.12505290666076993,
+    0.046551179773289236,
+    0.11196940101012123
   ],
   "coef": [
-    0.6717867527791915,
-    1.1986595038157855,
-    0.8155710931733309,
-    1.2300680321707298
+    0.6840769115673573,
+    1.2036522820757014,
+    0.7857385596505344,
+    1.2358466052791226
   ],
-  "intercept": 1.685618493272903,
+  "intercept": 1.6818817165004714,
   "training_accuracy_only": 0.85,
-  "warning": "Same tray only. NOT validated oil detection, oil/molasses classification, or segmentation. No independent-scene test."
+  "source": "20 original JPEG images extracted from user-provided PDF (not yet in GitHub)",
+  "warning": "One scene, provisional visual labels, uncalibrated score. NOT validated oil detection."
 }
