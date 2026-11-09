@@ -39,6 +39,10 @@ function init(){
      if(Number.isFinite(h))frame.style.height=Math.max(620,Math.min(2600,Math.ceil(h+15)))+'px';
      return;
    }
+   if(ev.data.type==='ultron-rgb-selected'){
+     window.ultronActiveDetectionMode='rgb';
+     return;
+   }
    if(ev.data.type==='ultron-rgb-visual-frame'){
      var d=ev.data;
      // Optical color-rule overlay is NOT an actual trained segmentation
