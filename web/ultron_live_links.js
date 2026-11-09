@@ -12,7 +12,17 @@ function parseCameraUrl(value,pageProtocol){
   return {url:u.href,inline:u.protocol==='https:'||pageProtocol==='http:',reason:u.protocol==='http:'&&pageProtocol==='https:'?'Local HTTP video cannot be embedded into GitHub Pages HTTPS. Open the stream in another tab, or use an authenticated HTTPS camera gateway.':null};
 }
 function fresh(time,now,limit){return Number.isFinite(time)&&time>0&&now-time>=0&&now-time<=limit;}
-var api={parseCameraUrl:parseCameraUrl,fresh:fresh};
+function cameraSnapshotUrl(value,pageProtocol){
+  var info=parseCameraUrl(value,pageProtocol);
+  var target=new URL(info.url);
+  if(!/\/(stream|capture)\/?$/i.test(target.pathname))
+    throw Error('Camera URL must end in /stream or /capture for snapshot support.');
+  target.pathname=target.pathname.replace(/\/(stream|capture)\/?$/i,'/capture');
+  // The camera firmware streams on HTTP port 81 and captures on port 80.
+  if(target.protocol==='http:'&&target.port==='81')target.port='80';
+  return target.href;
+}
+var api={parseCameraUrl:parseCameraUrl,cameraSnapshotUrl:cameraSnapshotUrl,fresh:fresh};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 if(typeof document==='undefined')return;
 if(root.__ultronLiveLinks)return;root.__ultronLiveLinks=true;
@@ -29,10 +39,11 @@ function init(){
   var section=document.createElement('section');section.id='ultronLiveLinks';
   section.innerHTML='<div class="ull-panel"><h2>ULTRON-SAT · Live links</h2><p class="ull-meta">Measured telemetry only. The orbit, battery animation and predicted oil drift are separate simulations. USB and a LoRa ground receiver both feed the existing USB reader; nothing is uploaded to the website.</p><div class="ull-grid">'+
   [['link','Telemetry link'],['age','Last live sample'],['valid','Valid sensor mask'],['i2c','I²C bus'],['temp','TMP102'],['bus','INA219 bus'],['imu','MPU6050'],['light','LDR raw ADC'],['storage','SD recording'],['radio','LoRa status'],['camstate','UART camera photo']].map(function(p){return '<div class="ull-cell"><small>'+p[1]+'</small><strong id="ull-'+p[0]+'">—</strong></div>';}).join('')+
-  '</div><p id="ull-status" class="ull-meta" role="status">No physical telemetry received yet. Use Connect USB in the existing telemetry panel. A LoRa receiver plugged into the computer also connects there.</p><div class="ull-camera"><h3>ESP32-CAM · Live video viewer</h3><p class="ull-meta">A camera firmware with network streaming is required. The current UART camera sketch captures SD photos only; it does not stream video. On GitHub Pages, HTTP local-camera video opens in a separate tab; an HTTPS camera gateway can display inline.</p><div class="ull-tools"><input id="ull-camera-url" type="url" placeholder="https://your-secure-camera-gateway/stream or http://192.168.x.x/stream" aria-label="Camera stream URL" autocomplete="off"><button id="ull-camera-start" type="button">Start / Open camera</button><button id="ull-camera-stop" type="button" disabled>Stop video</button></div><p id="ull-camera-status" role="status" class="ull-meta">Camera video is not connected.</p><img id="ull-camera-image" alt="ESP32-CAM live camera feed, shown only when an HTTPS stream is connected" hidden referrerpolicy="no-referrer"></div></div>';
+  '</div><p id="ull-status" class="ull-meta" role="status">No physical telemetry received yet. Use Connect USB in the existing telemetry panel. A LoRa receiver plugged into the computer also connects there.</p><div class="ull-camera"><h3>ESP32-CAM · Live video viewer</h3><p class="ull-meta">A camera firmware with network streaming is required. The current UART camera sketch captures SD photos only; it does not stream video. On GitHub Pages, HTTP local-camera video opens in a separate tab; an HTTPS camera gateway can display inline.</p><div class="ull-tools"><input id="ull-camera-url" type="url" placeholder="https://your-secure-camera-gateway/stream or http://192.168.x.x:81/stream" aria-label="Camera stream URL" autocomplete="off"><button id="ull-camera-start" type="button">Start / Open camera</button><button id="ull-camera-snapshot" type="button">Capture frame now</button><button id="ull-camera-stop" type="button" disabled>Stop video</button></div><p id="ull-camera-status" role="status" class="ull-meta">Camera video is not connected.</p><p class="ull-meta">Capture opens a fresh camera JPEG in another tab. Save it as a JPG to label for your RGB experiment. Snapshot requires the camera or HTTPS gateway to expose /capture; it does not run the SAR AI model automatically.</p><img id="ull-camera-image" alt="ESP32-CAM live camera feed, shown only when an HTTPS stream is connected" hidden referrerpolicy="no-referrer"></div></div>';
   (document.getElementById('page-comms')||document.querySelector('main')||document.body).append(section);
   var nav=document.querySelector('header nav');if(nav&&!nav.querySelector('a[href="#ultronLiveLinks"]')){var a=document.createElement('a');a.href='#ultronLiveLinks';a.textContent='Live links';nav.append(a);}
   $('ull-camera-start').addEventListener('click',startCamera);
+  $('ull-camera-snapshot').addEventListener('click',captureNow);
   $('ull-camera-stop').addEventListener('click',stopCamera);
   $('ull-camera-image').addEventListener('load',function(){if(playing)set('ull-camera-status','Live HTTPS camera stream opened. Picture freshness depends on the camera feed.');});
   $('ull-camera-image').addEventListener('error',function(){if(playing)set('ull-camera-status','Video load failed. Check the secure camera URL, gateway authentication and network access.');});
@@ -70,6 +81,14 @@ function startCamera(){
  $('ull-camera-image').hidden=false;$('ull-camera-image').src=data.url;
  $('ull-camera-stop').disabled=false;
  set('ull-camera-status','Opening HTTPS camera feed... If the image stays blank, verify the endpoint provides MJPEG or JPEG.');
+}
+function captureNow(){
+ var url;try{url=cameraSnapshotUrl($('ull-camera-url').value,location.protocol)}
+ catch(e){set('ull-camera-status',e.message);return;}
+ // Navigation (not canvas capture) works without cross-origin read access.
+ // A real JPEG is captured only if the physical camera's /capture server responds.
+ var opened=root.open(url,'_blank','noopener,noreferrer');
+ set('ull-camera-status','Requested a fresh camera JPEG in a new tab. Save Image As to collect a labelled RGB image. If blank, check that your camera or HTTPS gateway exposes /capture.');
 }
 function stopCamera(){
  playing=false;loading=false;frameUrl=null;
