@@ -188,6 +188,46 @@ function setupOriginal(){
  originalDivider.addEventListener('pointerup',endDrag);
  originalDivider.addEventListener('pointercancel',endDrag);
  originalDivider.addEventListener('lostpointercapture',()=>{dragging=false;activePointer=null;});
+
+ // Also allow dragging the visible cyan line directly on the main image.
+ // The canvas is deliberately pointer-events:none to preserve normal stage
+ // interactions, so register a narrow, proximity-checked handler on #stage.
+ // It intercepts ONLY gestures starting near the actual rendered divider.
+ let stagePointer=null;
+ function lineHit(e){
+   if(!latest||!originalOverlay||originalOverlay.style.display==='none')return false;
+   if(e.pointerType==='mouse'&&e.button!==0)return false;
+   const bounds=originalOverlay.getBoundingClientRect();
+   if(bounds.width<=0||bounds.height<=0||e.clientY<bounds.top||e.clientY>bounds.bottom)return false;
+   const lineX=bounds.left+bounds.width*compare;
+   // Match the painted line rather than guessing where the separate handle is.
+   return Math.abs(e.clientX-lineX)<=Math.min(34,Math.max(20,bounds.width*.055));
+ }
+ stage.addEventListener('pointerdown',e=>{
+   if(stagePointer!==null||!lineHit(e))return;
+   stagePointer=e.pointerId;
+   try{stage.setPointerCapture(e.pointerId);}catch{}
+   moveDividerToClientX(e.clientX);
+   e.preventDefault();e.stopImmediatePropagation();
+ },true);
+ stage.addEventListener('pointermove',e=>{
+   if(stagePointer!==e.pointerId)return;
+   moveDividerToClientX(e.clientX);
+   e.preventDefault();e.stopImmediatePropagation();
+ },true);
+ function releaseStagePointer(e){
+   if(stagePointer!==e.pointerId)return;
+   stagePointer=null;
+   try{if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId);}catch{}
+   if(e.cancelable)e.preventDefault();
+   e.stopImmediatePropagation();
+ }
+ stage.addEventListener('pointerup',releaseStagePointer,true);
+ stage.addEventListener('pointercancel',releaseStagePointer,true);
+ stage.addEventListener('lostpointercapture',e=>{
+   if(stagePointer===e.pointerId)stagePointer=null;
+ });
+
  originalDivider.addEventListener('keydown',e=>{
    let next=compare;
    if(e.key==='ArrowLeft'||e.key==='ArrowDown')next-=.05;
