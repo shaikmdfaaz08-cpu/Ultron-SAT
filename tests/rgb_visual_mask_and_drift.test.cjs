@@ -48,3 +48,20 @@ test('same-origin iframe relays RGB mask separately without claiming a SAR or re
  assert.match(main,/latest\.kind!=='sar'/);
  assert.match(main,/NOT a forecast/);
 });
+
+test('cyan divider on main detection view supports drag on mouse and touch and keyboard',()=>{
+ const main=file('web/ultron_main_detection_bridge.js');
+ assert.match(main,/ultronComparisonDragHandle/);
+ assert.match(main,/setPointerCapture\(e\.pointerId\)/);
+ assert.match(main,/addEventListener\('pointerdown'/);
+ assert.match(main,/addEventListener\('pointermove'/);
+ assert.match(main,/addEventListener\('pointerup'/);
+ assert.match(main,/addEventListener\('pointercancel'/);
+ assert.match(main,/addEventListener\('keydown'/);
+ assert.match(main,/touch-action:none/);
+ assert.match(main,/const rect=originalOverlay\.getBoundingClientRect\(\)/);
+ assert.match(main,/compare\*100/);
+ assert.match(main,/originalDivider\.style\.display='flex'/);
+ assert.match(main,/setComparison\(next\)/);
+ assert.match(main,/const den=Number\(range\.max\|\|100\)/);
+});
