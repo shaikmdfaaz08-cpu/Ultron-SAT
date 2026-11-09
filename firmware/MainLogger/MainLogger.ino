@@ -13,7 +13,12 @@
 // EDIT BEFORE USE. Zero disables transmission; select a locally permitted
 // frequency supported by your Ra-02 and antenna, and match the receiver.
 constexpr long LORA_FREQUENCY_HZ = 0;
-constexpr bool ENABLE_CAMERA = false; // true after uploading CameraNode
+// Staged camera integration: this branch is not ready to flash onto an unverified build.
+// CameraNode must be installed on a SEPARATE AI Thinker ESP32-CAM board.
+constexpr bool ENABLE_CAMERA = true;
+// Do not begin taking photos until an instructor verifies wiring, isolated
+// power, camera UART communication and the main board's SD storage.
+constexpr bool CAMERA_CAPTURE_VERIFIED = false;
 constexpr uint32_t SAMPLE_INTERVAL_MS = 30000;
 constexpr uint64_t LOG_BUDGET_BYTES = 64ULL * 1024 * 1024;
 constexpr uint64_t FREE_RESERVE_BYTES = 4ULL * 1024 * 1024;
@@ -273,14 +278,29 @@ bool savePhoto() {
 }
 
 void scanI2C() {
-  Serial.println("I2C scan: expected 0x40 INA219, 0x48 TMP102, 0x68 MPU6050");
-  uint8_t found = 0;
-  for (uint8_t a=1; a<127; ++a) {
+  Serial.println("I2C scan (GPIO21 SDA, GPIO22 SCL): expected 0x40 INA219, 0x48 TMP102, 0x68 MPU6050");
+  // Avoid reserved I2C addresses when evaluating unexpected responses.
+  unsigned found = 0;
+  bool inaSeen = false, tmpSeen = false, mpuSeen = false;
+  for (uint8_t a = 0x08; a <= 0x77; ++a) {
     Wire.beginTransmission(a);
-    if (Wire.endTransmission() == 0) { ++found; Serial.printf("  found 0x%02X\n", a); }
+    if (Wire.endTransmission() == 0) {
+      ++found;
+      Serial.printf("  found 0x%02X\n", a);
+      if (a == INA_ADDR) inaSeen = true;
+      if (a == TMP_ADDR) tmpSeen = true;
+      if (a == MPU_ADDR) mpuSeen = true;
+    }
   }
-  Serial.printf("I2C scan complete: %u responding address(es)\n", unsigned(found));
-  if (!found) Serial.println("No I2C devices responded. Sensor readings will remain null until communication works.");
+  Serial.printf("I2C scan complete: %u responding address(es)\n", found);
+  Serial.printf("Expected sensors: INA219 %s; TMP102 %s; MPU6050 %s\n",
+      inaSeen ? "ACK" : "NO ACK", tmpSeen ? "ACK" : "NO ACK",
+      mpuSeen ? "ACK" : "NO ACK");
+  if (found > 8)
+    Serial.println("WARNING: implausibly many I2C ACKs. Stop hardware testing; power down and have SDA/SCL, pull-ups and wiring inspected.");
+  else if (!found)
+    Serial.println("No I2C devices responded. Missing readings will remain null.");
+  // An address ACK alone is NOT proof that the corresponding chip is healthy.
 }
 void setup() {
   Serial.begin(115200); delay(500);
@@ -311,6 +331,7 @@ void setup() {
   }
   Serial.printf("LoRa %s\n", LORA_FREQUENCY_HZ <= 0 ? "DISABLED: frequency is zero" : radioOK ? "INITIALIZED (delivery unverified)" : "INIT FAILED: check wiring and radio settings");
   if (ENABLE_CAMERA) {
+    Serial.println("ESP32-CAM UART staged: image capture is locked until wiring, camera and main SD have been verified.");
     camera.setRxBufferSize(16384);
     camera.begin(CAM_BAUD, SERIAL_8N1, CAM_RX, CAM_TX);
   }
@@ -338,7 +359,7 @@ void loop() {
     }
   }
   Serial.println(makeUSBPacket(packet, logSaved, txState));
-  if (ENABLE_CAMERA && sdOK) {
+  if (ENABLE_CAMERA && CAMERA_CAPTURE_VERIFIED && sdOK) {
     captureAttempted = true;
     lastCaptureOK = savePhoto();
     if (lastCaptureOK) ++photosSaved;
