@@ -95,7 +95,7 @@ See [LIVE_SYSTEM_SETUP.md](LIVE_SYSTEM_SETUP.md) for the current USB, LoRa groun
 
 ## Public RGB water-tray demonstration (browser-only)
 
-Open **https://shaikmdfaaz08-cpu.github.io/Ultron-SAT/rgb_live.html** to use the new publicly hosted experimental RGB classifier. Everyone can access the page; the visual model runs inside the visitor's browser, with no Python server, no Render AI service and no local installation. It is separate from the existing satellite SAR image analysis.
+The experimental RGB camera classifier is embedded directly in the **main Mission Control dashboard**, immediately after the original SAR oil-detection controls. The separate `rgb_live.html` address remains available only as an optional standalone view and provides the same application, not a different AI system. Everyone can access the public dashboard; the RGB model runs in each visitor's browser without a Python server or local installation, and remains independent of the existing SAR analysis.
 
 The page can classify an uploaded photo, analyze the visitor's permitted camera approximately once per second, and optionally poll a separately configured secure **HTTPS /capture** ESP32-CAM endpoint (CORS required). A browser camera is the **visitor's own camera**, not a remote CubeSat stream. To show the CubeSat's camera to people outside the same Wi-Fi, an authenticated Internet-reachable HTTPS camera gateway and appropriate access controls are still needed. GitHub Pages cannot transmit a camera stream from a private IP by itself.
 
