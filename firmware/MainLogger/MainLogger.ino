@@ -13,8 +13,8 @@
 // EDIT BEFORE USE. Zero disables transmission; select a locally permitted
 // frequency supported by your Ra-02 and antenna, and match the receiver.
 constexpr long LORA_FREQUENCY_HZ = 0;
-constexpr bool ENABLE_CAMERA = false; // true after uploading CameraNode
-constexpr uint32_t SAMPLE_INTERVAL_MS = 30000;
+constexpr bool ENABLE_CAMERA = true; // probes UART companion; no photo without working SD
+constexpr uint32_t SAMPLE_INTERVAL_MS = 60000; // sample and record once per minute
 constexpr uint64_t LOG_BUDGET_BYTES = 64ULL * 1024 * 1024;
 constexpr uint64_t FREE_RESERVE_BYTES = 4ULL * 1024 * 1024;
 constexpr uint32_t LOG_CHUNK_BYTES = 64 * 1024;
@@ -29,7 +29,7 @@ constexpr char ROOT[] = "/ultron";
 HardwareSerial camera(2);
 bool sdOK = false, radioOK = false;
 uint32_t txCount = 0, txErrors = 0, photosSaved = 0;
-bool captureAttempted = false, lastCaptureOK = false;
+bool captureAttempted = false, lastCaptureOK = false, cameraOnline = false;
 uint32_t nextFileId = 1, bootId = 0, sampleNo = 0, previousSample = 0;
 uint64_t ownedBytes = 0;
 String activeLog;
@@ -131,7 +131,7 @@ String makeUSBPacket(const String &sensorPacket, bool logSaved, const char *txSt
   s += ",\"last_write_ok\":" + String(sdOK ? (logSaved ? "true" : "false") : "null") + "}";
   s += ",\"lora\":{\"state\":\"" + String(txState) + "\",\"tx_count\":" + String(txCount);
   s += ",\"errors\":" + String(txErrors) + "}";
-  s += ",\"camera\":{\"state\":\"" + String(!ENABLE_CAMERA ? "DISABLED" : !captureAttempted ? "UNVERIFIED" : lastCaptureOK ? "LAST_CAPTURE_SAVED" : "CAPTURE_FAILED") + "\"";
+  s += ",\"camera\":{\"state\":\"" + String(!ENABLE_CAMERA ? "DISABLED" : !cameraOnline ? "UART_NOT_DETECTED" : !sdOK ? "WAITING_FOR_SD" : !captureAttempted ? "READY" : lastCaptureOK ? "LAST_CAPTURE_SAVED" : "CAPTURE_FAILED") + "\"";
   s += ",\"frames\":" + String(photosSaved) + ",\"last_capture_ok\":";
   s += String(captureAttempted ? (lastCaptureOK ? "true" : "false") : "null") + "}}";
   return s;
@@ -225,6 +225,13 @@ bool cameraLine(String &line, uint32_t waitMs) {
     delay(1);
   }
   return false;
+}
+bool probeCamera() {
+  if (!ENABLE_CAMERA) return false;
+  while (camera.available()) camera.read();
+  camera.print("PING\n");
+  String line;
+  return cameraLine(line, 750) && line == "PONG";
 }
 bool savePhoto() {
   // Separate READY/GO handshake lets SD pruning finish before JPEG bytes arrive.
@@ -337,10 +344,15 @@ void loop() {
       else { txState = "TX_FAILED"; ++txErrors; }
     }
   }
-  Serial.println(makeUSBPacket(packet, logSaved, txState));
-  if (ENABLE_CAMERA && sdOK) {
-    captureAttempted = true;
-    lastCaptureOK = savePhoto();
-    if (lastCaptureOK) ++photosSaved;
+  if (ENABLE_CAMERA) {
+    cameraOnline = probeCamera();
+    if (!cameraOnline) Serial.println("CAM: UART companion not detected; photo skipped");
+    else if (!sdOK) Serial.println("CAM: UART companion detected, but SD unavailable; no photo saved");
+    else {
+      captureAttempted = true;
+      lastCaptureOK = savePhoto();
+      if (lastCaptureOK) ++photosSaved;
+    }
   }
+  Serial.println(makeUSBPacket(packet, logSaved, txState));
 }
