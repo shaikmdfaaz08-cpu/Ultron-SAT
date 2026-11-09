@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {parseCameraUrl,fresh}=require('../web/ultron_live_links.js');
+const {parseCameraUrl,cameraSnapshotUrl,fresh}=require('../web/ultron_live_links.js');
 test('HTTPS camera sources can render in GitHub Pages',()=>{
  const c=parseCameraUrl('https://example.test/stream','https:');
  assert.equal(c.inline,true);
@@ -21,4 +21,16 @@ test('stale samples do not read as live hardware',()=>{
  assert.equal(fresh(1000,90000,90000),true);
  assert.equal(fresh(1000,92000,90000),false);
  assert.equal(fresh(undefined,90000,90000),false);
+});
+
+test('snapshot request opens a real JPEG endpoint from local MJPEG port',()=>{
+ const u=cameraSnapshotUrl('http://192.168.1.25:81/stream','https:');
+ assert.equal(u,'http://192.168.1.25/capture');
+});
+test('secure camera gateway can expose matching snapshot endpoint',()=>{
+ const u=cameraSnapshotUrl('https://camera.example.test/stream','https:');
+ assert.equal(u,'https://camera.example.test/capture');
+});
+test('snapshot rejects unknown non-camera source paths',()=>{
+ assert.throws(()=>cameraSnapshotUrl('https://example.test/other','https:'),/must end/);
 });
