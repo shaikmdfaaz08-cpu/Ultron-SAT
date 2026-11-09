@@ -18,6 +18,7 @@
 #endif
 
 static httpd_handle_t server=nullptr;
+static httpd_handle_t streamServer=nullptr; // separate HTTP handler for continuous MJPEG
 static bool cameraOK=false;
 static const char *BOUNDARY="ultronframe";
 static esp_err_t snapshot(httpd_req_t *req) {
@@ -57,11 +58,21 @@ static void startServer(){
  httpd_config_t cfg=HTTPD_DEFAULT_CONFIG();cfg.server_port=80;cfg.max_uri_handlers=4;cfg.stack_size=8192;
  if(httpd_start(&server,&cfg)!=ESP_OK){Serial.println("CAM: server failed");return;}
  httpd_uri_t still={};still.uri="/capture";still.method=HTTP_GET;still.handler=snapshot;
- httpd_uri_t motion={};motion.uri="/stream";motion.method=HTTP_GET;motion.handler=stream;
  httpd_uri_t probe={};probe.uri="/health";probe.method=HTTP_GET;probe.handler=health;
  httpd_register_uri_handler(server,&still);
- httpd_register_uri_handler(server,&motion);
  httpd_register_uri_handler(server,&probe);
+ // Keep long-lived streaming requests off the snapshot server task.
+ httpd_config_t motionCfg=HTTPD_DEFAULT_CONFIG();
+ motionCfg.server_port=81;
+ motionCfg.ctrl_port=cfg.ctrl_port+1;
+ motionCfg.max_uri_handlers=2;
+ motionCfg.stack_size=8192;
+ if(httpd_start(&streamServer,&motionCfg)!=ESP_OK){
+   Serial.println("CAM: video stream server failed (snapshot may still work)");
+   return;
+ }
+ httpd_uri_t motion={};motion.uri="/stream";motion.method=HTTP_GET;motion.handler=stream;
+ httpd_register_uri_handler(streamServer,&motion);
 }
 void setup(){
  Serial.begin(115200);Serial.setDebugOutput(false);
@@ -84,6 +95,7 @@ void setup(){
  while(WiFi.status()!=WL_CONNECTED&&millis()-started<20000)delay(300);
  if(WiFi.status()!=WL_CONNECTED){Serial.println("CAM: Wi-Fi unavailable");return;}
  startServer();
- Serial.print("CAM: local stream http://");Serial.print(WiFi.localIP());Serial.println("/stream");
+ Serial.print("CAM: local video http://");Serial.print(WiFi.localIP());Serial.println(":81/stream");
+ Serial.print("CAM: capture now http://");Serial.print(WiFi.localIP());Serial.println("/capture");
 }
 void loop(){delay(1000);}
