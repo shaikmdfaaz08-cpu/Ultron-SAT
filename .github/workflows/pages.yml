@@ -46,3 +46,5 @@ jobs:
           path: site-dist
       - id: deployment
         uses: actions/deploy-pages@v4
+
+# Redeploy marker: republish committed dashboard assets without changing site code.
