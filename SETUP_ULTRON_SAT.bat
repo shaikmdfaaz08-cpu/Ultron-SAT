@@ -15,7 +15,7 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
-".venv\Scripts\python.exe" -m pip install -r requirements.txt
+".venv\Scripts\python.exe" -m pip install -r requirements-ai.txt
 if errorlevel 1 (
   echo Dependency installation failed. Review the errors.
   pause
