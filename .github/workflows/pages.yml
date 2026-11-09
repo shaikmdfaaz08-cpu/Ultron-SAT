@@ -8,6 +8,7 @@ on:
       - 'build_static_dashboard.py'
       - 'export_browser_model.py'
       - 'runs/oil_unet_full/best.pt'
+      - 'experiments/water_tray_2026_11_09/prototype_model.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 permissions:
