@@ -70,6 +70,11 @@ function init(){
  if(oldSar){
    var restored=oldSar.cloneNode(true);
    restored.id='bai';
+   // The original HTML has onclick="runAI()" which POSTs to a Python API.
+   // Cloning copies that inline attribute, so remove it before binding the
+   // independent browser ONNX action.
+   restored.removeAttribute('onclick');
+   restored.onclick=null;
    restored.textContent='Run AI model';
    restored.disabled=false;
    restored.hidden=false;
@@ -127,11 +132,25 @@ function init(){
    if(!mask||mask.length!==65536)return;
    var pixels=0;for(var i=0;i<mask.length;i++)pixels+=mask[i]===1?1:0;
    var pct=(pixels/65536*100).toFixed(2);
+   var tF=$('tF');if(tF)tF.textContent=pct+'%';
+   var tA=$('tA'),kmPerPixel=Number($('kmpx')?.value||0);
+   if(tA){
+     if(kmPerPixel>0&&Number.isFinite(kmPerPixel)){
+       var imagePixels=Number(e.detail?.width||0)*Number(e.detail?.height||0);
+       tA.textContent=(imagePixels*pixels/65536*kmPerPixel*kmPerPixel).toFixed(3)+' km² (approx.)';
+     }else tA.textContent='Enter km/pixel';
+   }
+   var tD=$('tD');if(tD)tD.textContent='Needs geo forecast';
    var status=$('ultronSarRunStatus');
    if(status){
      status.style.color='#b5f6d7';
      status.textContent='Trained SAR U-Net finished · candidate mask '+pct+'% of image. Overlay and 48-hour illustration updated. A weather-based forecast requires real location and km/pixel scale.';
    }
+ });
+ document.addEventListener('ultron:drift-forecast',function(e){
+   var displacement=e.detail?.[48]?.km;
+   var tD=$('tD');
+   if(tD&&Number.isFinite(displacement))tD.textContent=Number(displacement).toFixed(2)+' km (scenario)';
  });
  var originalUpload=$('file');
  if(originalUpload){
