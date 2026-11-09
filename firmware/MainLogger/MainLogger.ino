@@ -35,7 +35,7 @@ bool sdOK = false, radioOK = false;
 uint8_t i2cAddressCount = 0, i2cExpectedMask = 0;
 bool i2cBusTrusted = false;
 uint32_t txCount = 0, txErrors = 0, photosSaved = 0;
-bool captureAttempted = false, lastCaptureOK = false, cameraOnline = false;
+bool captureAttempted = false, lastCaptureOK = false, cameraOnline = false, cameraChecked = false;
 uint32_t nextFileId = 1, bootId = 0, sampleNo = 0, previousSample = 0;
 uint32_t previousLog = 0, previousCamera = 0, previousRadio = 0;
 bool lastLogOK = false;
@@ -143,7 +143,7 @@ String makeUSBPacket(const String &sensorPacket, bool logSaved, const char *txSt
   s += ",\"errors\":" + String(txErrors) + "}";
   s += ",\"i2c\":{\"state\":\"" + String(i2cBusTrusted ? "SCANNED" : i2cAddressCount ? "SUSPECT" : "NO_DEVICES") + "\"";
   s += ",\"responding\":" + String(i2cAddressCount) + ",\"found_mask\":" + String(i2cExpectedMask) + "}";
-  s += ",\"camera\":{\"state\":\"" + String(!ENABLE_CAMERA ? "DISABLED" : !sdOK ? "WAITING_FOR_SD" : !cameraOnline ? "UART_NOT_DETECTED" : !captureAttempted ? "READY" : lastCaptureOK ? "LAST_CAPTURE_SAVED" : "CAPTURE_FAILED") + "\"";
+  s += ",\"camera\":{\"state\":\"" + String(!ENABLE_CAMERA ? "DISABLED" : !sdOK ? "WAITING_FOR_SD" : !cameraChecked ? "UNVERIFIED" : !cameraOnline ? "UART_NOT_DETECTED" : !captureAttempted ? "READY" : lastCaptureOK ? "LAST_CAPTURE_SAVED" : "CAPTURE_FAILED") + "\"";
   s += ",\"frames\":" + String(photosSaved) + ",\"last_capture_ok\":";
   s += String(captureAttempted ? (lastCaptureOK ? "true" : "false") : "null") + "}}";
   return s;
@@ -391,6 +391,7 @@ void loop() {
   if (ENABLE_CAMERA && sdOK && uint32_t(now - previousCamera) >= CAMERA_INTERVAL_MS) {
     previousCamera = now;
     cameraOnline = probeCamera();
+    cameraChecked = true;
     if (!cameraOnline) Serial.println("CAM: UART companion not detected; photo skipped");
     else {
       captureAttempted = true;
