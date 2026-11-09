@@ -7,3 +7,6 @@ DATASET/
 dataset/
 
 runs/oil_unet_enhanced/
+
+# Keep locally configured camera network credentials out of GitHub
+firmware/**/camera_wifi_secrets.h
