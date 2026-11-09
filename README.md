@@ -91,3 +91,12 @@ Previous project work has been retained. The new launch/training utilities do no
 ## Live camera and redundant links (November 2026)
 
 See [LIVE_SYSTEM_SETUP.md](LIVE_SYSTEM_SETUP.md) for the current USB, LoRa ground receiver, camera-streaming and rolling SD implementation, what remains unimplemented, and hardware prerequisites. The Wi-Fi streaming firmware in `firmware/CameraWifiStream` is optional and replaces the UART still-photo sketch on a single ESP32-CAM. LoRa remains disabled in the published firmware until the permitted radio parameters and compatible hardware are verified.
+
+
+## Public RGB water-tray demonstration (browser-only)
+
+Open **https://shaikmdfaaz08-cpu.github.io/Ultron-SAT/rgb_live.html** to use the new publicly hosted experimental RGB classifier. Everyone can access the page; the visual model runs inside the visitor's browser, with no Python server, no Render AI service and no local installation. It is separate from the existing satellite SAR image analysis.
+
+The page can classify an uploaded photo, analyze the visitor's permitted camera approximately once per second, and optionally poll a separately configured secure **HTTPS /capture** ESP32-CAM endpoint (CORS required). A browser camera is the **visitor's own camera**, not a remote CubeSat stream. To show the CubeSat's camera to people outside the same Wi-Fi, an authenticated Internet-reachable HTTPS camera gateway and appropriate access controls are still needed. GitHub Pages cannot transmit a camera stream from a private IP by itself.
+
+The included classifier recognizes visual dark-patch appearance from 20 near-duplicate frames of a single water-tray session. It is experimental and does not prove identification of oil, molasses or actual water contamination. Its confidence-like score is not calibrated accuracy and it is not a pixel-level segmentation mask. The source dataset and review notes are under `experiments/water_tray_2026_11_09/`.
