@@ -28,6 +28,7 @@ scripts = [
     "ultron_shared_usb_bridge.js",
     "ultron_runtime_patch.js",
     "ultron_esp32_telemetry.js",
+    "ultron_live_links.js",
     "ultron_browser_oil_ai.js",
     "ultron_weather_drift.js",
     "ultron_inline_ai.js",
