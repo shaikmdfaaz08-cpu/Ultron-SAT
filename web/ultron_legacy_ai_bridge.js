@@ -63,44 +63,85 @@ function init(){
      }catch(err){note('rgbCameraStatus',err.message);}
    },true);
  }
- // The old "Run AI model" invokes a Python /analyze endpoint and is disabled
- // by legacy power/hardware connection rules. Replace only its visible button
- // with an independent working browser SAR action.
+ // Restore the original Run AI model action rather than hiding it.
+ // Clone its DOM node to discard stale Python-backend listeners and hardware
+ // disabled-state gating; this browser SAR ONNX action needs no USB connection.
  var oldSar=$('bai');
  if(oldSar){
-   oldSar.style.display='none';
-   var sarButton=document.createElement('button');
-   sarButton.id='ultronSarBrowserRun';
-   sarButton.type='button';sarButton.className='pri';
-   sarButton.textContent='Analyze SAR image in browser';
-   oldSar.insertAdjacentElement('afterend',sarButton);
-   // Original Python-only download buttons cannot receive a result.
-   for(var name of ['bmask','bann']){var b=$(name);if(b)b.style.display='none';}
+   var restored=oldSar.cloneNode(true);
+   restored.id='bai';
+   restored.textContent='Run AI model';
+   restored.disabled=false;
+   restored.hidden=false;
+   restored.style.display='';
+   oldSar.replaceWith(restored);
    var msg=$('fi');
-   if(msg&&!$('file')?.files?.length)msg.textContent='Choose a SAR-derived JPG or PNG tile. Analysis runs in your browser without an AI server.';
-   sarButton.addEventListener('click',function(){
+   if(msg)msg.textContent='Upload a SAR-derived JPG/PNG tile and press Run AI model. Trained SAR inference runs in your browser (no CubeSat connection necessary).';
+   // Old Python-only download links cannot return an offline browser mask.
+   for(var name of ['bmask','bann']){var b=$(name);if(b)b.style.display='none';}
+   var sarStatus=document.createElement('p');
+   sarStatus.id='ultronSarRunStatus';
+   sarStatus.setAttribute('role','status');
+   sarStatus.style.cssText='font:12px/1.5 system-ui;color:#bde6f3;margin:9px 0';
+   sarStatus.textContent='SAR browser model ready to start after you select an image. No AI server or USB hardware needed.';
+   restored.insertAdjacentElement('afterend',sarStatus);
+   function report(message,good){
+     sarStatus.textContent=message;
+     sarStatus.style.color=good?'#aff6db':'#ffd99b';
+     note('stt',message,good);
+   }
+   restored.addEventListener('click',function(event){
+     event.preventDefault();
      var section=$('ultronInlineAI');
-     if(!section){note('stt','SAR browser model panel not found. Refresh Mission Control.');return;}
+     if(!section){report('SAR browser detector missing. Refresh the dashboard.',false);return;}
      var choice=$('ity')?.value;
      if(choice==='other'){
        $('ultronRGBInline')?.scrollIntoView({behavior:'smooth',block:'start'});
-       note('stt','Optical camera photographs belong in the RGB camera section below.',true);
+       report('Camera photographs belong in the separate RGB section; choose SAR-derived RGB tile for this model.',false);
        return;
      }
      var f=$('file')?.files?.[0];
-     section.scrollIntoView({behavior:'smooth',block:'start'});
-     if(!f){note('stt','Select a SAR-derived JPG or PNG in the browser SAR section below.',true);return;}
-     if(!/^image\/(jpeg|png)$/.test(f.type)){
-       note('stt','Browser SAR analysis accepts JPG or PNG. Choose one in the SAR section below.');
-       return;
+     if(!f){report('Select a SAR-derived JPG or PNG first.',false);return;}
+     if(!/^image\/(jpeg|png)$/.test(f.type)||f.size>15*1024*1024){
+       report('Choose a valid SAR-derived JPG or PNG under 15 MB.',false);return;
      }
+     window.ultronActiveDetectionMode='sar';
+     section.scrollIntoView({behavior:'smooth',block:'start'});
      try{
        var picker=section.querySelector('input[type=file]'),run=findSarRun();
+       if(!picker||!run)throw Error('The embedded SAR model controls could not be found.');
        pickFile(picker,f);
-       if(!run)throw Error('SAR inference button unavailable.');
-       note('stt','Running the trained SAR model in browser. See results below.',true);
+       report('Loading trained SAR U-Net and analyzing '+f.name+' in your browser. The result and 48-hour tools appear below.',true);
        run.click();
-     }catch(err){note('stt',err.message);}
+     }catch(err){report('SAR analysis could not start: '+err.message,false);}
+   });
+   // The original hardware may be disconnected. It must not disable web-only analysis.
+   var enable=new MutationObserver(function(){
+     if(restored.disabled)restored.disabled=false;
+     if(restored.hidden)restored.hidden=false;
+   });
+   enable.observe(restored,{attributes:true,attributeFilter:['disabled','hidden']});
+ }
+ document.addEventListener('ultron:sar-detection',function(e){
+   var mask=e.detail?.mask;
+   if(!mask||mask.length!==65536)return;
+   var pixels=0;for(var i=0;i<mask.length;i++)pixels+=mask[i]===1?1:0;
+   var pct=(pixels/65536*100).toFixed(2);
+   var status=$('ultronSarRunStatus');
+   if(status){
+     status.style.color='#b5f6d7';
+     status.textContent='Trained SAR U-Net finished · candidate mask '+pct+'% of image. Overlay and 48-hour illustration updated. A weather-based forecast requires real location and km/pixel scale.';
+   }
+ });
+ var originalUpload=$('file');
+ if(originalUpload){
+   originalUpload.addEventListener('change',function(){
+     var f=originalUpload.files?.[0];
+     if(!f)return;
+     window.ultronActiveDetectionMode='sar';
+     document.dispatchEvent(new CustomEvent('ultron:sar-file-selected',{detail:{file:f}}));
+     var status=$('ultronSarRunStatus');
+     if(status)status.textContent='Selected '+f.name+'. Click Run AI model to compute the actual trained SAR mask; the previous RGB overlay is cleared.';
    });
  }
  // Legacy settings still reference this DOM input, so do not remove it.
