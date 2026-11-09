@@ -41,7 +41,7 @@ function init(){
 function render(){
  if(!$('ultronLiveLinks'))return;
  var t=latest,portOK=t?.transport!=='USB'||!root.UltronApp?.usbConnected||root.UltronApp.usbConnected();
- var live=t&&t.source==='REAL HARDWARE'&&portOK&&fresh(t.received_at,Date.now(),90000);
+ var live=t&&t.source==='REAL HARDWARE'&&portOK&&fresh(t.received_at,Date.now(),12000);
  var link=t?(t.transport==='USB'&&(t.lora?.rssi!=null||t.lora?.snr!=null)?'LoRa → ground USB':t.transport):'Not connected';
  set('ull-link',live?link+' · LIVE':link+' · '+(t?'STALE':'OFFLINE'));
  set('ull-age',t?(t.source==='REPLAY'?'Historical (not live)':Math.max(0,Math.round((Date.now()-t.received_at)/1000))+' seconds'):'Never');
