@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'tests/**'
       - 'build_static_dashboard.py'
       - 'export_browser_model.py'
       - 'runs/oil_unet_full/best.pt'
@@ -30,7 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/telemetry_integration.test.cjs
+      - run: node --test tests/*.test.cjs
       - run: python build_static_dashboard.py
       - name: Install trained model conversion dependencies
         run: |
