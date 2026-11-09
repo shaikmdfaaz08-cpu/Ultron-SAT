@@ -1,21 +1,17 @@
 name: Train experimental water tray RGB classifier
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'A.I/train_water_tray_prototype.py'
       - 'experiments/water_tray_2026_11_09/**'
       - '.github/workflows/train-water-tray.yml'
-
-permissions:
-  contents: read
+  workflow_dispatch:
 
 jobs:
   train:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - name: Check out dataset and training script
         uses: actions/checkout@v4
