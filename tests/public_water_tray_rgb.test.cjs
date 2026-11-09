@@ -28,3 +28,19 @@ test('remote public camera source requires HTTPS and capture endpoint',()=>{
 test('invalid model is not accepted',()=>{
  assert.throws(()=>classify([0,0,0,0],{verified_oil_detector:true}),/experimental/);
 });
+
+
+test('main dashboard embeds RGB viewer beside the SAR detector, not a separate navigation flow',()=>{
+ const builder=fs.readFileSync(path.join(__dirname,'../build_static_dashboard.py'),'utf8');
+ const embed=fs.readFileSync(path.join(__dirname,'../web/ultron_rgb_inline.js'),'utf8');
+ const page=fs.readFileSync(path.join(__dirname,'../web/rgb_live.html'),'utf8');
+ const links=fs.readFileSync(path.join(__dirname,'../web/ultron_live_links.js'),'utf8');
+ assert.match(builder,/"ultron_rgb_inline\.js"/);
+ assert.match(embed,/getElementById\('ultronInlineAI'\)/);
+ assert.match(embed,/rgb_live\.html\?embed=1/);
+ assert.match(embed,/frame\.allow='camera'/);
+ assert.match(embed,/ev\.source!==frame\.contentWindow\|\|ev\.origin!==location\.origin/);
+ assert.match(page,/document\.body\.classList\.add\('embedded'\)/);
+ assert.match(page,/ultron-rgb-height/);
+ assert.match(links,/href="#ultronRGBInline"/);
+});
