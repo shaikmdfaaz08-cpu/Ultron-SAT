@@ -40,7 +40,7 @@ function age(){
  if(!$('hwage'))return;const app=window.UltronApp,r=rows.at(-1),usb=!!app?.usbConnected?.(),wifi=!!app?.isConnected?.('WIFI');connected=usb||wifi;
  $('hwopen').disabled=usb||['connecting','disconnecting'].includes(app?.usbState?.());$('hwclose').disabled=!usb&&app?.usbState?.()!=='connecting';
  $('hwage').textContent=r?(r.origin==='SD log'?'Historical log':Math.max(0,Math.round((Date.now()-r.when)/1000))+' s ago'):'Never';
- const transport=r?.origin==='WIFI'?'WIFI':'USB',active=transport==='USB'?usb:wifi,limit=window.MC4?.staleMs?.()||90000;
+ const transport=r?.origin==='WIFI'?'WIFI':'USB',active=transport==='USB'?usb:wifi,limit=12000;
  $('hwconn').textContent=!connected?'Not connected':!last||!r||r.origin==='SD log'||!active?(usb?'USB':'WIFI')+' open · awaiting data':Date.now()-r.when>limit?transport+' open · data stale':transport+' live readings';
 }
 async function connect(){
