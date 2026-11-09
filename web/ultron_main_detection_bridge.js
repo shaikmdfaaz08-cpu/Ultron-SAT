@@ -68,7 +68,7 @@ function shift(hour,w,h){
  const dx=(a.x+b.x)*hour,dy=(a.y+b.y)*hour;
  return{x:dx*.32,y:-dy*.32};
 }
-let originalOverlay=null,originalFrame=null,originalDivider=null,originalRange=null,driftCanvas=null,driftStatus=null;
+let originalOverlay=null,originalFrame=null,originalDivider=null,originalRange=null,driftCanvas=null,driftStatus=null,previewRequest=0;
 function setComparison(value){
  compare=Math.max(0,Math.min(1,Number(value)||0));
  if(originalRange){
@@ -247,6 +247,9 @@ function activate(e,kind){
  const incoming=e.detail;
  if(!incoming?.mask||incoming.mask.length!==65536||!incoming.sourceCanvas)return;
  if(kind==='rgb'&&incoming.maskType!=='color-rule-not-AI-segmentation')return;
+ if(kind==='rgb'&&window.ultronActiveDetectionMode==='sar')return;
+ previewRequest++;
+ window.ultronActiveDetectionMode=kind;
  const continuing=kind==='rgb'&&latest?.kind==='rgb';
  latest=Object.assign({},incoming,{kind:kind});
  if(!continuing){forecast=null;clock=0;compare=.5;}
@@ -267,6 +270,35 @@ function activate(e,kind){
  redrawOriginal();redrawDrift();
  if(!continuing)startAnimation();
 }
+// A newly selected SAR file must replace the stale RGB preview immediately.
+// No mask is drawn until the trained SAR U-Net actually returns a result.
+document.addEventListener('ultron:sar-file-selected',function(event){
+ const file=event.detail?.file;
+ if(!file||!/^image\/(png|jpeg)$/.test(file.type))return;
+ const token=++previewRequest;
+ window.ultronActiveDetectionMode='sar';
+ pauseAnimation();latest=null;forecast=null;particleSeed=[];
+ setupOriginal();
+ if(originalDivider)originalDivider.style.display='none';
+ const note=$('#ultronOriginalMaskNote');
+ if(note){note.style.display='block';note.textContent='SAR image selected · original preview only · press Run AI model for trained detection';}
+ if(driftStatus)driftStatus.textContent='SAR image selected. Run the model to create a detection mask before calculating any forecast.';
+ if(driftCanvas){const dc=driftCanvas.getContext('2d');dc.clearRect(0,0,driftCanvas.width,driftCanvas.height);}
+ const url=URL.createObjectURL(file),img=new Image();
+ img.onload=()=>{
+   URL.revokeObjectURL(url);
+   if(token!==previewRequest||window.ultronActiveDetectionMode!=='sar'||!originalOverlay)return;
+   originalOverlay.width=img.naturalWidth;
+   originalOverlay.height=img.naturalHeight;
+   const ctx=originalOverlay.getContext('2d');
+   ctx.drawImage(img,0,0,originalOverlay.width,originalOverlay.height);
+   originalOverlay.style.display='block';
+ };
+ img.onerror=()=>{URL.revokeObjectURL(url);
+   if(note&&token===previewRequest)note.textContent='Could not preview SAR image. Choose a valid JPG/PNG.';
+ };
+ img.src=url;
+});
 document.addEventListener('ultron:sar-detection',e=>activate(e,'sar'));
 document.addEventListener('ultron:rgb-visual-demo',e=>activate(e,'rgb'));
 document.addEventListener('ultron:drift-forecast',e=>{if(!latest||latest.kind!=='sar')return;forecast=e.detail;clock=0;startAnimation()});
