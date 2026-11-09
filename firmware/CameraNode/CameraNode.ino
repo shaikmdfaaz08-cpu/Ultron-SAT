@@ -67,7 +67,8 @@ void loop() {
   while (Serial.available()) {
     char ch = Serial.read();
     if (ch == '\n') {
-      if (command == "PHOTO") sendPhoto();
+      if (command == "PING") Serial.println("PONG");
+      else if (command == "PHOTO") sendPhoto();
       command = "";
     } else if (ch != '\r') {
       if (command.length() < 32) command += ch;
