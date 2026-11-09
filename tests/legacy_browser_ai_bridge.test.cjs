@@ -16,11 +16,18 @@ test('legacy RGB six-class server button is bridged into working browser RGB exp
  assert.match(source,/ultronRGBInline/);
  assert.match(source,/pickFile\(picker,f\)/);
 });
-test('legacy SAR button bypasses Python endpoint and does not require CubeSat connection',()=>{
- assert.match(source,/oldSar\.style\.display='none'/);
- assert.match(source,/Analyze SAR image in browser/);
+test('original Run AI model button is restored and starts browser SAR without hardware',()=>{
+ assert.match(source,/oldSar\.cloneNode\(true\)/);
+ assert.match(source,/restored\.textContent='Run AI model'/);
+ assert.match(source,/restored\.disabled=false/);
+ assert.match(source,/oldSar\.replaceWith\(restored\)/);
  assert.match(source,/run\.click\(\)/);
- assert.match(source,/getElementById|function \$\(id\)/);
+ assert.match(source,/ultron:sar-file-selected/);
+ assert.match(source,/ultron:sar-detection/);
+});
+test('no conflicting Run AI model interception remains in published site',()=>{
+ assert.doesNotMatch(builder,/"ultron_ai_button_fix\.js"/);
+ assert.match(builder,/"ultron_legacy_ai_bridge\.js"/);
 });
 test('static GitHub Pages builder does not display optional AI backend popup',()=>{
  assert.doesNotMatch(builder,/"ultron_ai_remote_bridge\.js"/);
