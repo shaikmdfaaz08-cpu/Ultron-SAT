@@ -19,7 +19,7 @@ button:hover{background:#24759b}button:disabled{opacity:.55;cursor:not-allowed}.
 #fill{width:0;height:100%;background:#39badd;transition:width .2s}
 #status{padding:12px;background:#0a2237;border:1px solid #2a536d;border-radius:8px;line-height:1.5;min-height:65px}
 .note{border-left:3px solid #70b2cc;padding:9px 12px;margin-top:14px;background:#102d40;color:#d5e8f6;font-size:13px;line-height:1.55}
-strong{color:#fff}@media(max-width:840px){.grid{grid-template-columns:1fr}}
+strong{color:#fff}@media(max-width:840px){.grid{grid-template-columns:1fr}}body.embedded > header{display:none}body.embedded main{margin:0;max-width:none;padding:8px 5px 12px}body.embedded .grid{margin-top:0}body.embedded{background:transparent}
 </style></head><body>
 <header><div><span class="pill">ULTRON-SAT · PUBLIC WEBSITE</span><h1>Live RGB water-tray experiment</h1></div><a href="./">Return to mission control</a></header>
 <main>
@@ -52,6 +52,18 @@ strong{color:#fff}@media(max-width:840px){.grid{grid-template-columns:1fr}}
 <script>
 (function(){
 'use strict';
+if(new URLSearchParams(location.search).get('embed')==='1'){
+ document.body.classList.add('embedded');
+ var layout=document.querySelector('main');
+ var reportHeight=function(){
+   if(!layout||window.parent===window)return;
+   var height=layout.getBoundingClientRect().height+25;
+   window.parent.postMessage({type:'ultron-rgb-height',height:height},location.origin);
+ };
+ if(window.ResizeObserver&&layout)new ResizeObserver(reportHeight).observe(layout);
+ window.addEventListener('load',reportHeight);
+ requestAnimationFrame(reportHeight);
+}
 var $=function(x){return document.getElementById(x);};
 var model=null,mode=null,timer=null,stream=null,busy=false,count=0,last=null,video=$('video'),canvas=$('preview'),ctx=canvas.getContext('2d',{willReadFrequently:true});
 var small=document.createElement('canvas');small.width=96;small.height=96;
