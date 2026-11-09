@@ -1,7 +1,7 @@
 (()=>{'use strict';
 /* SAR U-Net mask and SEPARATE RGB color-rule visual proxy on original stage.
    Optical mask is NOT trained segmentation and NOT physical drift. */
-let latest=null,forecast=null,compare=.96,frame=48,playing=false,clock=0,lastTick=0,animationId=0,particleSeed=[];
+let latest=null,forecast=null,compare=.5,frame=48,playing=false,clock=0,lastTick=0,animationId=0,particleSeed=[];
 const hours=[6,12,24,48],hues=['#4be5e8','#5fb8ff','#a88bff','#ff7f9a'];
 const $=(selector,root=document)=>root.querySelector(selector);
 function make(tag,text,parent){const el=document.createElement(tag);if(text!=null)el.textContent=text;if(parent)parent.appendChild(el);return el}
@@ -68,7 +68,21 @@ function shift(hour,w,h){
  const dx=(a.x+b.x)*hour,dy=(a.y+b.y)*hour;
  return{x:dx*.32,y:-dy*.32};
 }
-let originalOverlay=null,originalFrame=null,driftCanvas=null,driftStatus=null;
+let originalOverlay=null,originalFrame=null,originalDivider=null,originalRange=null,driftCanvas=null,driftStatus=null;
+function setComparison(value){
+ compare=Math.max(0,Math.min(1,Number(value)||0));
+ if(originalRange){
+   const a=Number(originalRange.min||0),b=Number(originalRange.max||100);
+   if(b>a)originalRange.value=String(a+compare*(b-a));
+ }
+ redrawOriginal();
+}
+function moveDividerToClientX(clientX){
+ if(!originalOverlay)return;
+ const rect=originalOverlay.getBoundingClientRect();
+ if(!rect.width)return;
+ setComparison((clientX-rect.left)/rect.width);
+}
 function redrawOriginal(){
  if(!latest||!originalOverlay)return;
  const cv=originalOverlay,w=cv.width,h=cv.height,ctx=cv.getContext('2d');
@@ -76,6 +90,11 @@ function redrawOriginal(){
  ctx.save();ctx.beginPath();ctx.rect(0,0,Math.round(w*compare),h);ctx.clip();
  drawMask(ctx,w,h,'#ff9b38',0,0,.63);ctx.restore();
  const pos=w*compare;ctx.fillStyle='#58e4ee';ctx.fillRect(Math.max(0,pos-2),0,4,h);
+ if(originalDivider){
+   originalDivider.style.left=(compare*100)+'%';
+   originalDivider.setAttribute('aria-valuenow',String(Math.round(compare*100)));
+   originalDivider.setAttribute('aria-valuetext',Math.round(compare*100)+' percent highlighted left, original right');
+ }
  ctx.fillStyle='#e5fcff';ctx.font='bold '+Math.max(12,Math.round(w/55))+'px system-ui';
  ctx.fillText(latest.kind==='rgb'?'Colour-rule overlay':'SAR model mask',12,24);ctx.textAlign='right';ctx.fillText('Original',w-12,24);ctx.textAlign='left';
 }
@@ -136,6 +155,48 @@ function setupOriginal(){
  originalOverlay.id='ultronOriginalMaskOverlay';
  originalOverlay.width=map.width||800;originalOverlay.height=map.height||500;
  originalOverlay.style.cssText='position:absolute;z-index:14;left:0;top:0;width:100%;height:100%;pointer-events:none;display:none;border-radius:10px';
+ // A narrow drag handle sits on the cyan divider. It does not block the
+ // entire mission-control surface, and works with mouse, touch, or keyboard.
+ originalDivider=make('div',null,stage);
+ originalDivider.id='ultronComparisonDragHandle';
+ originalDivider.setAttribute('role','slider');
+ originalDivider.setAttribute('aria-label','Drag to compare original image with highlighted mask');
+ originalDivider.setAttribute('aria-valuemin','0');
+ originalDivider.setAttribute('aria-valuemax','100');
+ originalDivider.setAttribute('aria-valuenow','50');
+ originalDivider.tabIndex=0;
+ originalDivider.style.cssText='position:absolute;z-index:16;top:0;left:50%;transform:translateX(-50%);width:44px;height:100%;display:none;touch-action:none;cursor:ew-resize;user-select:none;align-items:center;justify-content:center;outline-offset:3px';
+ const grip=make('span','↔',originalDivider);
+ grip.setAttribute('aria-hidden','true');
+ grip.style.cssText='display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#073047ed;color:#dfffff;border:2px solid #55e4e8;box-shadow:0 1px 14px #0009;font:bold 21px system-ui;pointer-events:none';
+ let dragging=false,activePointer=null;
+ originalDivider.addEventListener('pointerdown',e=>{
+   if(e.button!==0&&e.pointerType==='mouse')return;
+   dragging=true;activePointer=e.pointerId;
+   originalDivider.setPointerCapture(e.pointerId);
+   moveDividerToClientX(e.clientX);
+   e.preventDefault();
+ });
+ originalDivider.addEventListener('pointermove',e=>{
+   if(dragging&&e.pointerId===activePointer){moveDividerToClientX(e.clientX);e.preventDefault();}
+ });
+ const endDrag=e=>{
+   if(e.pointerId!==activePointer)return;
+   dragging=false;activePointer=null;
+   if(originalDivider.hasPointerCapture(e.pointerId))originalDivider.releasePointerCapture(e.pointerId);
+ };
+ originalDivider.addEventListener('pointerup',endDrag);
+ originalDivider.addEventListener('pointercancel',endDrag);
+ originalDivider.addEventListener('lostpointercapture',()=>{dragging=false;activePointer=null;});
+ originalDivider.addEventListener('keydown',e=>{
+   let next=compare;
+   if(e.key==='ArrowLeft'||e.key==='ArrowDown')next-=.05;
+   else if(e.key==='ArrowRight'||e.key==='ArrowUp')next+=.05;
+   else if(e.key==='Home')next=0;
+   else if(e.key==='End')next=1;
+   else return;
+   e.preventDefault();setComparison(next);
+ });
  const note=make('div','Oil detection overlay — same SAR U-Net results shown below',stage);
  note.id='ultronOriginalMaskNote';note.style.cssText='position:absolute;z-index:15;top:8px;left:8px;font:11px system-ui;background:#041828d9;color:#d6eff9;padding:5px 8px;border-radius:7px;display:none;pointer-events:none';
  // Read the existing original comparison slider when its label is available.
@@ -144,8 +205,15 @@ function setupOriginal(){
   let parent=c.parentElement;
   for(let j=0;j<3&&parent;j++,parent=parent.parentElement){
    const range=parent.querySelector('input[type=range]');
-   if(range){compare=(Number(range.value)-Number(range.min||0))/(Number(range.max||100)-Number(range.min||0));if(!Number.isFinite(compare))compare=.96;
-    range.addEventListener('input',()=>{const den=Number(range.max||100)-Number(range.min||0);compare=den?(Number(range.value)-Number(range.min||0))/den:.5;redrawOriginal()});break}
+   if(range){
+     originalRange=range;
+     // Preserve the old comparison control, now synchronized with the image handle.
+     range.addEventListener('input',()=>{
+       const den=Number(range.max||100)-Number(range.min||0);
+       setComparison(den?(Number(range.value)-Number(range.min||0))/den:.5);
+     });
+     break;
+   }
   }
  }
 }
@@ -181,10 +249,11 @@ function activate(e,kind){
  if(kind==='rgb'&&incoming.maskType!=='color-rule-not-AI-segmentation')return;
  const continuing=kind==='rgb'&&latest?.kind==='rgb';
  latest=Object.assign({},incoming,{kind:kind});
- if(!continuing){forecast=null;clock=0;}
+ if(!continuing){forecast=null;clock=0;compare=.5;}
  particleSeed=seeds();setupOriginal();setupDrift();
  if(originalOverlay){
    originalOverlay.style.display='block';
+   if(originalDivider)originalDivider.style.display='flex';
    const n=$('#ultronOriginalMaskNote');
    if(n){
      n.style.display='block';
