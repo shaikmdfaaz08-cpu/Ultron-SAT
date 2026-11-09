@@ -17,10 +17,10 @@ This experiment is based on the uploaded 20-page PDF captured on 2026-11-09.
 2. Open `ULTRON_SAT_RGB_DATASET/images`. You should see `frame_01.jpg` through `frame_20.jpg`.
 3. Go to the GitHub repository's `experiments/water_tray_2026_11_09/images/` directory.
 4. Click **Add file -> Upload files**, drag all 20 JPEGs, and commit. Do not upload the original PDF instead of the actual image files.
-5. The `Train experimental water tray RGB classifier` GitHub Action will start on a push that changes the experiment directory. Alternatively open Actions and click **Run workflow**.
-6. Download the Action artifact called `water-tray-prototype`, which includes `experimental_appearance_model.json` and `training_report.json`.
+5. The existing `Publish ULTRON-SAT static dashboard` GitHub Action retrains the prototype when this experiment folder changes. Alternatively open Actions > Publish ULTRON-SAT static dashboard > **Run workflow**.
+6. After the Pages workflow succeeds, open the published model report at `https://shaikmdfaaz08-cpu.github.io/Ultron-SAT/experiments/water_tray_prototype/training_report.json` and the model at the matching `experimental_appearance_model.json` URL.
 
-The Action also works *before* the originals have been uploaded: it can train from the already-committed `features.csv` extracted from the 20 images. This is a limited appearance classifier, NOT the real six-class oil RGB segmentation model and not the separately deployed SAR model.
+The Pages Action also works *before* the originals have been uploaded: it trains from the already-committed `features.csv` extracted from the 20 images. This is a limited appearance classifier, NOT the real six-class oil RGB segmentation model and not the separately deployed SAR model.
 
 ## How to use the experiment responsibly
 
