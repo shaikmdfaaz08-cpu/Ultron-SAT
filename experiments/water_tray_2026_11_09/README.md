@@ -18,7 +18,7 @@ This experiment is based on the uploaded 20-page PDF captured on 2026-11-09.
 3. Go to the GitHub repository's `experiments/water_tray_2026_11_09/images/` directory.
 4. Click **Add file -> Upload files**, drag all 20 JPEGs, and commit. Do not upload the original PDF instead of the actual image files.
 5. The complete extracted image set will now be versioned with your repository; GitHub itself will not automatically train a model just from a file upload.
-6. The repository already includes a locally trained **prototype_model.json** based on numerical features from these 20 images. For retraining, download/clone the repo and run the Python command below. The dashboard Pages workflow is deliberately left unchanged for stability.
+6. The repository now includes a **prototype_model.json trained from the original 20 extracted JPEG pixels**. To retrain with additional correctly labeled photos, clone/download the repo and run the Python command below, then replace this model file on GitHub. Uploading the model JSON triggers the existing GitHub Pages deployment; uploading JPGs alone does not train or redeploy.
 
 The training script works *before* the originals are uploaded by reading the saved `features.csv` extracted from them. When the original JPEGs are available in the `images/` folder, the script recomputes features directly from the photos. This is a limited appearance classifier, NOT the real six-class oil RGB segmentation model and not the separately deployed SAR model.
 
@@ -33,4 +33,6 @@ pip install numpy pillow scikit-learn
 python A.I/train_water_tray_prototype.py --data experiments/water_tray_2026_11_09 --out runs/water_tray_prototype
 ```
 
-If original JPEGs are present, the trainer recomputes all features from them; otherwise it consumes the committed numerical features. Never claim the training report's in-sample metric is generalization accuracy.
+The trainer writes `runs/water_tray_prototype/prototype_model.json` in the schema expected by `web/water_tray_rgb_core.js`, as well as a training report and a compatibility copy of the model. After examining the report, replace `experiments/water_tray_2026_11_09/prototype_model.json` in the GitHub UI with the new file content and commit to `main`. The Pages workflow automatically copies that file into `site-dist/models/water_tray_prototype.json` and republishes the website. 
+
+If original JPEGs are present, the trainer recomputes features directly from them; otherwise it consumes the saved numerical features. The current data has only one scene and no independent validation. Never claim the training score is generalization accuracy.
