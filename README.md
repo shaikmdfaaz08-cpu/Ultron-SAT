@@ -1,12 +1,36 @@
 # ULTRON SAT — Mission Control and Oil-Slick Segmentation
 
+## Live deployment: Render is only a redirect
+
+- **Actual dashboard:** https://shaikmdfaaz08-cpu.github.io/Ultron-SAT/
+- **Old public entrypoint (redirect):** https://ultron-sat.onrender.com/
+- Render runs `uvicorn backend.app:app --host 0.0.0.0 --port $PORT`.
+  `backend/app.py` is now an extremely small ASGI app returning HTTP 302
+  to GitHub Pages. It loads no model and serves no dashboard.
+- Render's `requirements.txt` contains only Uvicorn; no PyTorch, OpenCV,
+  FastAPI or other AI server dependencies are installed by the redirect build.
+- The original Python AI backend is preserved in
+  `backend/legacy_ai_app.py` for **local** use, with dependencies in
+  `requirements-ai.txt` and an updated Windows launcher.
+- All static dashboard assets, trained model files, and original 3D features
+  remain in this GitHub repository. GitHub Pages builds independently.
+- GitHub Pages cannot run Python model inference. Browser model inference
+  depends on the separately published ONNX browser workflow.
+- **Do not delete the Render service** if you need to keep the old
+  `ultron-sat.onrender.com` hostname: its small redirect still needs hosting.
+  This setup does not delete the account, service, or provider-side backups.
+- Render cannot act as a relay for ESP32 USB or LoRa telemetry; USB data is
+  read locally by a compatible browser using Web Serial.
+
+
 This repository contains a local AI oil-slick segmentation backend, Windows startup scripts, an existing web dashboard, trained U-Net weights, and engineering materials.
 
 ## Current components
 
 - `web/ULTRON_SAT_MISSION_CONTROL_V5_IOS_GLASS_DOCK.html`: current hosted dashboard (selected by Render `ULTRON_DASHBOARD`).
 - `backend/rgb_payload.py`: experimental six-class image analysis for the ESP32 camera payload, separate from SAR inference.
-- `backend/app.py`: FastAPI service and trained-image inference endpoint.
+- `backend/app.py`: lightweight Render redirect-only ASGI entrypoint.
+- `backend/legacy_ai_app.py`: preserved optional local AI inference API.
 - `runs/oil_unet_full/best.pt`: existing U-Net ResNet34 checkpoint (**already present**). Do not overwrite without validation.
 - `A.I/train_oil_unet_csv.py`: training from CSV dataset split manifests.
 - `A.I/train_oil_unet.py`: alternate image/mask directory training.
@@ -18,7 +42,7 @@ This repository contains a local AI oil-slick segmentation backend, Windows star
 
 1. Install a compatible Python version and Git.
 2. Clone/download this repository.
-3. Run `SETUP_ULTRON_SAT.bat` once. Note: requirements install `torch` and computer-vision dependencies; training scripts additionally use `opencv-python` and `albumentations`.
+3. Run `SETUP_ULTRON_SAT.bat` once. Local setup installs `requirements-ai.txt` (including PyTorch and computer-vision dependencies). The Render server installs only `requirements.txt`.
 4. Run `ULTRON_SAT_Launcher.bat`.
 5. Browse to `http://127.0.0.1:8000/`. The backend must remain running for AI inference.
 
@@ -28,7 +52,7 @@ Put your licensed dataset at `DataSet/oilspill-detection-dataset-real/` with `sp
 
 Run `TRAIN_ULTRON_SAT.bat`. Start with the 1-epoch smoke test, inspect losses and image-mask alignment, then run full training. The full option writes to `runs/oil_unet_new/` so the existing checkpoint is preserved. Check IoU/Dice on a truly held-out test set before deployment. It does **not** automatically switch the backend to the new model.
 
-The backend currently expects a 256-pixel U-Net ResNet34 model at `runs/oil_unet_full/best.pt`. Training alternatives must match that architecture and preprocessing for inference. To serve a validated new checkpoint, set `ULTRON_CKPT` to the desired model path before starting the backend.
+The preserved local AI backend expects a 256-pixel U-Net ResNet34 model at `runs/oil_unet_full/best.pt`. Training alternatives must match that architecture and preprocessing for inference. To serve a validated new checkpoint, set `ULTRON_CKPT` to the desired model path before starting the backend.
 
 ## Website vs backend
 
@@ -38,18 +62,19 @@ A single HTML file can be opened locally and hosted as a static GitHub Pages sit
 
 The onboard imaging payload is now an **ESP32 camera**, replacing the previous ArduCAM hardware reference. This is a hardware documentation/UI terminology update; the existing optical model has **not** been retrained or validated using ESP32 camera image data. Upload and analyze images through the separate `/rgb` route.
 
-Render serves `web/ULTRON_SAT_MISSION_CONTROL_V5_IOS_GLASS_DOCK.html` with `ULTRON_DASHBOARD` set to its filename. The main FastAPI app adds runtime navigation/detection updates and displays ESP32 terminology for remaining legacy dashboard labels.
+GitHub Pages now serves the dashboard directly. Render provides only a 302 redirect to GitHub Pages; the static build script injects the browser enhancements into the published dashboard. The optional local FastAPI backend remains available separately.
 
 ## Hosting performance
 
-The current Render free service has only 512 MB RAM and limited CPU, making PyTorch cold starts and memory usage problematic. A paid **2 GB or higher** instance (Render 1c-2g, Railway Hobby with allocated memory, Koyeb 2 GB, or Fly.io 2 GB) is more realistic for this workload. Migration does not automatically improve model accuracy, which requires validated labeled ESP32 optical imagery.
+Render's free 512 MB RAM service previously ran a PyTorch backend and encountered memory failures. It now runs only a minimal redirect, avoiding Python inference and model loading. Model accuracy still depends on independent validation.
 
 ## ESP32 telemetry dashboard (November 2026)
 
 The existing full-size 3D dashboard is `web/ULTRON_SAT_MISSION_CONTROL_V5_IOS_GLASS_DOCK.html`.
-The **live ESP32 readings extension** is `web/ultron_esp32_telemetry.js`, which is injected by `backend/app.py` when Render serves the dashboard. The extension is kept separate from the large 3D HTML file to avoid altering shaders, 3D animation logic or other dashboard features.
+The **live ESP32 readings extension** is `web/ultron_esp32_telemetry.js`, which is included by `build_static_dashboard.py` when GitHub Pages publishes the dashboard. The extension is kept separate from the large 3D HTML file to avoid altering shaders, 3D animation logic or other dashboard features.
 
-**Live application:** https://ultron-sat.onrender.com/
+**Live GitHub Pages dashboard:** https://shaikmdfaaz08-cpu.github.io/Ultron-SAT/  
+**Render redirect:** https://ultron-sat.onrender.com/
 
 **Supported readings:** TMP102 temperature; INA219 monitored 5 V bus voltage, current and power; MPU6050 accelerometer and gyroscope; LDR ADC light reading. The panel reads newline-delimited JSON telemetry from a USB-connected ESP32 or ground LoRa receiver using desktop Chromium Web Serial at 115200 baud. It also imports historical SD `.log` files and exports CSV. Samples typically arrive every 30 seconds per the supplied firmware.
 
