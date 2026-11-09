@@ -21,6 +21,24 @@
     }
     return [dark/total,brown/total,veryDark/total,brownDark/total];
   }
+  // Visual candidate map, NOT a trained pixel segmentation mask.
+  // Brown/dark colour thresholds were checked against demonstration JPGs.
+  // They may also highlight shadows, tray edges, or other brown substances.
+  function visualMask(data,width,height){
+    if(!data||!Number.isInteger(width)||!Number.isInteger(height)||
+       width<1||height<1||data.length<width*height*4)
+      throw Error("Invalid RGB frame for visual mask");
+    var mask=new Uint8Array(width*height),count=0;
+    var mx=Math.max(1,Math.floor(width*.018)),my=Math.max(1,Math.floor(height*.018));
+    for(var y=my;y<height-my;y++)for(var x=mx;x<width-mx;x++){
+      var p=y*width+x,i=4*p,r=data[i]/255,g=data[i+1]/255,b=data[i+2]/255;
+      var brightness=.299*r+.587*g+.114*b;
+      var brown=r>1.13*g&&r>1.16*b&&r>.10&&r<.81&&g<.62&&brightness<.63;
+      var brownShadow=brightness<.29&&r>g*.95&&r>b*1.03;
+      if(brown||brownShadow){mask[p]=1;count++;}
+    }
+    return {mask:mask,count:count,fraction:count/(width*height),method:"color-threshold-only"};
+  }
   function validateModel(model){
     if(!model||model.verified_oil_detector!==false||model.independent_test_accuracy!==null)
       throw Error("Only the reviewed experimental model is accepted");
@@ -47,5 +65,5 @@
       throw Error("Camera gateway URL must end in /capture");
     return u.href;
   }
-  return {keys:KEYS,features:features,classify:classify,captureEndpoint:captureEndpoint};
+  return {keys:KEYS,features:features,visualMask:visualMask,classify:classify,captureEndpoint:captureEndpoint};
 });
