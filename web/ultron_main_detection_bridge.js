@@ -1,6 +1,6 @@
 (()=>{'use strict';
-/* ULTRON-SAT: reuse the SAME verified browser U-Net detection in original
-   Mission Control panels. No duplicate model/no fake masks. */
+/* SAR U-Net mask and SEPARATE RGB color-rule visual proxy on original stage.
+   Optical mask is NOT trained segmentation and NOT physical drift. */
 let latest=null,forecast=null,compare=.96,frame=48,playing=false,clock=0,lastTick=0,animationId=0,particleSeed=[];
 const hours=[6,12,24,48],hues=['#4be5e8','#5fb8ff','#a88bff','#ff7f9a'];
 const $=(selector,root=document)=>root.querySelector(selector);
@@ -50,6 +50,9 @@ function seeds(){
  return out;
 }
 function shift(hour,w,h){
+ if(latest?.kind==='rgb'){
+   return{x:w*.13*(hour/48),y:-h*.055*(hour/48)}; // visual illustration only
+ }
  if(forecast?.[6]&&forecast.scale>0){
   const a=Math.max(0,Math.min(48,hour));
   const lo=Math.floor(a),hi=Math.ceil(a);
@@ -74,7 +77,7 @@ function redrawOriginal(){
  drawMask(ctx,w,h,'#ff9b38',0,0,.63);ctx.restore();
  const pos=w*compare;ctx.fillStyle='#58e4ee';ctx.fillRect(Math.max(0,pos-2),0,4,h);
  ctx.fillStyle='#e5fcff';ctx.font='bold '+Math.max(12,Math.round(w/55))+'px system-ui';
- ctx.fillText('Detected mask',12,24);ctx.textAlign='right';ctx.fillText('Original',w-12,24);ctx.textAlign='left';
+ ctx.fillText(latest.kind==='rgb'?'Colour-rule overlay':'SAR model mask',12,24);ctx.textAlign='right';ctx.fillText('Original',w-12,24);ctx.textAlign='left';
 }
 function redrawDrift(){
  if(!latest||!driftCanvas)return;
@@ -84,9 +87,9 @@ function redrawDrift(){
  const hoursNow=Math.max(0,Math.min(48,clock));
  const path=shift(hoursNow,w,h);
  const t=hoursNow/48;
- // Show the real AI detected outline at the observed location.
+ // SAR model mask or separate RGB colour-rule candidate area.
  drawMask(ctx,w,h,'#f7a94a',0,0,.24);
- // Animated Lagrangian particles seeded ONLY in the model-predicted slick.
+ // Animated illustrative particles inside a model mask (SAR) or color-rule mask (RGB).
  for(let i=0;i<ss.length;i++){
   const p=ss[i],variation=1+0.06*Math.sin(i*14.19),spread=Math.sqrt(hoursNow/48)*Math.max(0,w*.017);
   const jx=spread*Math.sin(i*12.9898+hoursNow*.13),jy=spread*Math.cos(i*8.321+hoursNow*.13);
@@ -103,12 +106,13 @@ function redrawDrift(){
   ctx.beginPath();ctx.moveTo(w*.5,h*.5);ctx.lineTo(w*.5+p.x,h*.5+p.y);ctx.stroke();ctx.setLineDash([]);
  }
  ctx.fillStyle='#021321d9';ctx.fillRect(8,8,Math.min(w-16,345),55);
- ctx.fillStyle='#eaffff';ctx.font='bold 15px system-ui';ctx.fillText('Oil slick drift · +'+hoursNow.toFixed(1)+' of 48 h',18,28);
+ ctx.fillStyle='#eaffff';ctx.font='bold 15px system-ui';ctx.fillText(latest.kind==='rgb'?'RGB visual movement demo · +'+hoursNow.toFixed(1)+'h':'Oil slick drift · +'+hoursNow.toFixed(1)+' of 48 h',18,28);
  ctx.font='12px system-ui';ctx.fillStyle='#93e4f3';
- ctx.fillText(forecast?'Forecast: hourly wind + ocean currents':'Scenario: adjustable wind + current sliders',18,48);
+ ctx.fillText(latest.kind==='rgb'?'ILLUSTRATION ONLY · no weather or scale':forecast?'Forecast: hourly wind + ocean currents':'Scenario: adjustable wind + current sliders',18,48);
  if(driftStatus){
-  driftStatus.textContent=(forecast?'Forecast-driven experimental estimate':'Illustrative slider-driven scenario (not measured weather)')+
-    ' · '+ss.length+' moving particles originating inside the AI detection mask.';
+  driftStatus.textContent=latest.kind==='rgb'
+    ? 'RGB colour-rule candidate only · '+ss.length+' illustrated particles. The 0–48h movement is NOT a forecast and has no physical scale.'
+    : (forecast?'Forecast-driven experimental estimate':'Illustrative slider-driven scenario (not measured weather)')+' · '+ss.length+' moving particles originating in the SAR U-Net mask.';
  }
 }
 function animate(ts){
@@ -171,15 +175,32 @@ function setupDrift(){
  if(old)old.style.display='none';
  sliders.slice(0,4).forEach(x=>x.addEventListener('input',()=>{forecast=null;redrawDrift()}));
 }
-function activate(e){
- latest=e.detail; if(!latest?.mask||latest.mask.length!==65536||!latest.sourceCanvas)return;
- forecast=null;clock=0;particleSeed=seeds();setupOriginal();setupDrift();
- if(originalOverlay){originalOverlay.style.display='block';const n=$('#ultronOriginalMaskNote');if(n)n.style.display='block';originalOverlay.width=latest.width;originalOverlay.height=latest.height}
+function activate(e,kind){
+ const incoming=e.detail;
+ if(!incoming?.mask||incoming.mask.length!==65536||!incoming.sourceCanvas)return;
+ if(kind==='rgb'&&incoming.maskType!=='color-rule-not-AI-segmentation')return;
+ const continuing=kind==='rgb'&&latest?.kind==='rgb';
+ latest=Object.assign({},incoming,{kind:kind});
+ if(!continuing){forecast=null;clock=0;}
+ particleSeed=seeds();setupOriginal();setupDrift();
+ if(originalOverlay){
+   originalOverlay.style.display='block';
+   const n=$('#ultronOriginalMaskNote');
+   if(n){
+     n.style.display='block';
+     n.textContent=kind==='rgb'
+       ? 'RGB photo · orange colour-rule candidate (NOT trained oil mask)'
+       : 'Satellite SAR · trained U-Net detection mask';
+   }
+   originalOverlay.width=latest.width;originalOverlay.height=latest.height;
+ }
  if(driftCanvas){driftCanvas.width=800;driftCanvas.height=Math.max(300,Math.round(800*latest.height/latest.width))}
- redrawOriginal();redrawDrift();startAnimation();
+ redrawOriginal();redrawDrift();
+ if(!continuing)startAnimation();
 }
-document.addEventListener('ultron:sar-detection',activate);
-document.addEventListener('ultron:drift-forecast',e=>{if(!latest)return;forecast=e.detail;clock=0;startAnimation()});
+document.addEventListener('ultron:sar-detection',e=>activate(e,'sar'));
+document.addEventListener('ultron:rgb-visual-demo',e=>activate(e,'rgb'));
+document.addEventListener('ultron:drift-forecast',e=>{if(!latest||latest.kind!=='sar')return;forecast=e.detail;clock=0;startAnimation()});
 function init(){setupOriginal();setupDrift();window.addEventListener('resize',()=>{if(latest){redrawOriginal();redrawDrift()}})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
