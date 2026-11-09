@@ -164,6 +164,9 @@ function drawCandidateOverlay(){
  }
 }
 function status(text){$('status').textContent=text;}
+function selectOpticalMode(){
+ if(window.parent!==window)window.parent.postMessage({type:'ultron-rgb-selected'},location.origin);
+}
 function stop(){
   mode=null;if(timer){clearInterval(timer);timer=null;}
   if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
@@ -191,7 +194,7 @@ function renderImage(src){
 }
 async function tickWebcam(){if(busy||mode!=='webcam')return;busy=true;try{if(video.readyState>=2)renderImage(video);}catch(e){status('Camera frame error: '+e.message);}finally{busy=false;}}
 async function startWebcam(){
-  stop();if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){status('This browser cannot use cameras. Upload a photo instead.');return;}
+  selectOpticalMode();stop();if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){status('This browser cannot use cameras. Upload a photo instead.');return;}
   if(!model){status('Model not loaded yet.');return;}
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
@@ -214,7 +217,7 @@ async function tickRemote(){
   finally{busy=false;}
 }
 function startRemote(){
-  if(!model){status('Model not loaded yet');return;}
+  selectOpticalMode();if(!model){status('Model not loaded yet');return;}
   try{UltronWaterRGB.captureEndpoint($('remoteUrl').value);}catch(e){status(e.message);return;}
   stop();mode='remote';status('Connecting to your authorized HTTPS camera gateway...');
   tickRemote();timer=setInterval(tickRemote,1000);
@@ -228,6 +231,7 @@ $('save').addEventListener('click',function(){
 });
 $('upload').addEventListener('change',async function(){
   var f=this.files&&this.files[0];if(!f)return;
+  selectOpticalMode();
   if(!/^image\/(jpeg|png|webp)$/.test(f.type)||f.size>15*1024*1024){status('Choose a JPG, PNG or WebP under 15 MB.');return;}
   stop();
   try{
