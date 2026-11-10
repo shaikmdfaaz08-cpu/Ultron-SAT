@@ -54,11 +54,14 @@ strong{color:#fff}
 <div class="buttons"><button id="webcam">Use this device's camera</button><button id="stop">Stop live analysis</button><button id="save">Save current frame</button></div>
 <label for="upload">Or analyze a JPG/PNG from any visitor</label>
 <input id="upload" type="file" accept="image/jpeg,image/png,image/webp">
-<h3 style="margin-top:21px">Live remote ESP32-CAM (optional HTTPS feed)</h3>
-<p class="muted">To show <em>the CubeSat's camera</em> to anyone remotely, supply a reachable, authorized <strong>HTTPS /capture</strong> endpoint with browser CORS access. GitHub Pages cannot connect directly to a private ESP32 HTTP IP or relay its video. Do not expose the raw camera ports to the public internet.</p>
+<h3 style="margin-top:21px">Live CubeSat camera · hotspot → secure cloud → dashboard</h3>
+<p class="muted">When the ESP32-CAM sends frames to your existing Render camera relay, visitors can see the demonstration tray here without typing its local IP. The feed is public while the camera transmits, so keep people and private surroundings out of view. Frames update about every 2.5 seconds, not continuous video.</p>
+<div class="buttons"><button id="connectCubeSatCloud" type="button">Connect CubeSat live camera · no IP</button></div>
+<details><summary class="muted" style="cursor:pointer">Advanced: use a different HTTPS camera gateway</summary>
 <label for="remoteUrl">Secure camera snapshot URL</label>
 <input id="remoteUrl" type="url" inputmode="url" placeholder="https://your-camera-gateway.example/capture" autocomplete="off">
-<div class="buttons"><button id="remote">Analyze secure remote camera every second</button></div>
+<div class="buttons"><button id="remote" type="button">Analyze secure remote camera</button></div>
+</details>
 </section>
 <aside class="panel">
 <h2>RGB inference results</h2>
@@ -67,7 +70,7 @@ strong{color:#fff}
 <div id="status" role="status">Loading the experimental model from GitHub Pages…</div>
 <p class="muted" id="metadata">Frames analyzed: 0</p>
 <div class="note">A dark-looking patch is only a <strong>visual proxy</strong> in this experiment. Brown liquid, shadows, reflections, the container and lighting can cause false detections. An AI score is not proof of an oil spill or a calibrated probability. The 20 examples came from the same tray session.</div>
-<div class="note">If you select <strong>Use this device's camera</strong>, each viewer sees their own camera, not the CubeSat feed. A shared remote feed needs its own secure live camera gateway. The existing SAR dashboard is unchanged.</div>
+<div class="note"><strong>Use this device's camera</strong> means the visitor's own webcam. <strong>Connect CubeSat live camera</strong> reads the water-tray frames from the secure Render relay when the physical ESP32-CAM is uploading. The existing SAR dashboard is unchanged.</div>
 </aside></div>
 </main>
 <script src="water_tray_rgb_core.js"></script>
@@ -208,11 +211,12 @@ async function tickRemote(){
   try{
     var u=UltronWaterRGB.captureEndpoint($('remoteUrl').value);
     var resp=await fetch(u,{mode:'cors',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(9000)});
+    if(resp.status===503){status('CubeSat camera offline: waiting for the ESP32-CAM to connect and upload a fresh JPEG to Render. The dashboard is ready; no local IP needed.');return;}
     if(!resp.ok)throw Error('Camera returned HTTP '+resp.status);
     var blob=await resp.blob();
     if(!blob.type.startsWith('image/'))throw Error('Endpoint did not return an image');
     var bmp=await createImageBitmap(blob);try{renderImage(bmp);}finally{bmp.close();}
-    status('Secure remote camera JPEG received and analyzed in this browser.');
+    status('Live CubeSat cloud JPEG received and analyzed. This is optical appearance detection, separate from SAR.');
   }catch(e){stop();status('Remote camera unavailable or blocked by CORS/authentication: '+e.message+'; a public GitHub URL alone cannot create an internet camera feed.');}
   finally{busy=false;}
 }
@@ -220,8 +224,12 @@ function startRemote(){
   selectOpticalMode();if(!model){status('Model not loaded yet');return;}
   try{UltronWaterRGB.captureEndpoint($('remoteUrl').value);}catch(e){status(e.message);return;}
   stop();mode='remote';status('Connecting to your authorized HTTPS camera gateway...');
-  tickRemote();timer=setInterval(tickRemote,1000);
+  tickRemote();timer=setInterval(tickRemote,2200);
 }
+$('connectCubeSatCloud').addEventListener('click',function(){
+  $('remoteUrl').value='https://ultron-sat.onrender.com/camera/frame.jpg';
+  startRemote();
+});
 $('webcam').addEventListener('click',startWebcam);$('remote').addEventListener('click',startRemote);
 $('stop').addEventListener('click',function(){stop();status('Live analysis stopped. You can still save the most recent frame.');});
 $('save').addEventListener('click',function(){
