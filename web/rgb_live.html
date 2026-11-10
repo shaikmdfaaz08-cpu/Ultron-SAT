@@ -217,7 +217,11 @@ async function tickRemote(){
     if(!blob.type.startsWith('image/'))throw Error('Endpoint did not return an image');
     var bmp=await createImageBitmap(blob);try{renderImage(bmp);}finally{bmp.close();}
     status('Live CubeSat cloud JPEG received and analyzed. This is optical appearance detection, separate from SAR.');
-  }catch(e){stop();status('Remote camera unavailable or blocked by CORS/authentication: '+e.message+'; a public GitHub URL alone cannot create an internet camera feed.');}
+  }catch(e){
+    // Render free instances can cold-start. Keep polling the selected cloud
+    // camera until the visitor presses Stop, rather than abandoning the feed.
+    status('Waiting for CubeSat camera cloud connection: '+e.message+'. The ESP32-CAM must be powered and uploading frames. Press Stop live analysis to disconnect.');
+  }
   finally{busy=false;}
 }
 function startRemote(){
