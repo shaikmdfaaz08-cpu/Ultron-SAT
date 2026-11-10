@@ -46,3 +46,16 @@ The enhanced USB packet can also report SD, LoRa and UART camera status. It does
 - For a starting RGB prototype collect approximately 100–300 distinct examples per class of clean water, oil-on-water and molasses-on-water. Use multiple setups and held-out test scenes. For pixel-level segmentation every image needs a human-checked mask. These counts are planning heuristics, not guarantees of model accuracy.
 - Pomegranate molasses is a different material from oil. A detector trained on molasses cannot automatically be claimed to detect oil spills.
 - For a reliable demonstration show a real video, capture a real JPEG, then demonstrate existing separately validated detection if available. A snapshot does not itself run AI.
+
+
+## Optional public camera over the hotspot (no IP entry in Mission Control)
+
+The diagnostic ESP32-CAM sketch supplied by the owner creates `/capture` on a **private** hotspot address; a private address cannot be embedded as a live camera source in public HTTPS GitHub Pages. Do not expose port 80/81 or the Wi-Fi credentials on GitHub.
+
+A separate, opt-in **snapshot relay** now exists at `https://ultron-sat.onrender.com/camera/frame.jpg`. The Render service retains its original redirect for all non-camera routes. ESP32-CAM POSTs a JPEG to `https://ultron-sat.onrender.com/camera/push` with `X-ULTRON-CAMERA-KEY` matching Render environment secret `ULTRON_CAMERA_UPLOAD_TOKEN`; only valid authenticated JPEGs under 160 KB are accepted, at no faster than roughly 0.65 seconds. Render keeps the latest frame **in RAM only**, and the viewer reports the feed offline after 15 seconds without an upload.
+
+The public GitHub dashboard's *Live RGB water-tray experiment* has **Connect CubeSat live camera · no IP**. It polls the relay by HTTPS and applies the already published experimental RGB appearance classifier and colour-rule visual candidate overlay, without interfering with SAR detection. This is approximately **one JPEG per 2.5 seconds**, not continuous motion video, and not a validated oil detector. It is visible to anyone opening the public page while active. Avoid capturing people, personal information, or private surroundings.
+
+The owner-specific ESP32-CAM upload sketch and its **private config header** are supplied in a separate downloadable ZIP in the conversation, never checked into the public repository. It maintains local access via `http://ultroncam.local/` on networks with mDNS support. It requires a 2.4 GHz hotspot with actual Internet access, a trusted TLS certificate chain and synchronized device time. If mDNS is blocked by the hotspot, the local IP may still be needed for **local troubleshooting**, but **never** for the public GitHub dashboard.
+
+The camera is a distinct ESP32-CAM board; its firmware does not replace the main CubeSat sensor logger. The public Render service still runs no AI models. If the owner wants to turn off the public feed, disconnect/power off the camera or disable the upload configuration. If Render sleeps or restarts, in-memory frames disappear; the viewer shows offline until the next successful upload.
