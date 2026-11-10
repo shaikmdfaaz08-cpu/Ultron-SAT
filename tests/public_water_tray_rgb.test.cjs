@@ -44,3 +44,15 @@ test('main dashboard embeds RGB viewer beside the SAR detector, not a separate n
  assert.match(page,/ultron-rgb-height/);
  assert.match(links,/href="#ultronRGBInline"/);
 });
+
+
+test('GitHub Pages recognizes the secure Render camera relay without requesting a local IP',()=>{
+ assert.equal(captureEndpoint('https://ultron-sat.onrender.com/camera/frame.jpg'),'https://ultron-sat.onrender.com/camera/frame.jpg');
+ assert.throws(()=>captureEndpoint('http://ultron-sat.onrender.com/camera/frame.jpg'),/HTTPS/);
+ assert.throws(()=>captureEndpoint('https://example.invalid/camera/frame.jpg'),/capture/);
+ const page=fs.readFileSync(path.join(__dirname,'../web/rgb_live.html'),'utf8');
+ assert.match(page,/id="connectCubeSatCloud"/);
+ assert.match(page,/https:\/\/ultron-sat\.onrender\.com\/camera\/frame\.jpg/);
+ assert.match(page,/startRemote\(\)/);
+ assert.match(page,/resp\.status===503/);
+});
