@@ -61,8 +61,9 @@
     var u;try{u=new URL(input);}catch(e){throw Error("Enter a complete HTTPS snapshot URL");}
     if(u.protocol!=="https:"||u.username||u.password)
       throw Error("Remote camera must use HTTPS without embedded credentials");
-    if(!/\/capture\/?$/i.test(u.pathname))
-      throw Error("Camera gateway URL must end in /capture");
+    var publicRelay=(u.hostname==="ultron-sat.onrender.com" && u.pathname==="/camera/frame.jpg");
+    if(!publicRelay && !/\/capture\/?$/i.test(u.pathname))
+      throw Error("Camera URL must end in /capture, or use the ULTRON-SAT HTTPS relay");
     return u.href;
   }
   return {keys:KEYS,features:features,visualMask:visualMask,classify:classify,captureEndpoint:captureEndpoint};
